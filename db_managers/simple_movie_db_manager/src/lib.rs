@@ -17,12 +17,16 @@ mod tests {
     fn query_user() {
         let manager = MovieDBManager::connect_to("postgres://ademir:@localhost/simple_movies");
 
-        let user = manager.get_user_by_name("Chris");
+        let users = manager.get_user_by_name("Chris");
         
-        println!("{:?}", user);
+        println!("{:?}\n", users);
 
-        let user = manager.get_user_by_id(15);
+        let users = manager.get_user_by_id(15);
         
-        println!("{:?}", user);
+        println!("{:?}\n", users);
+
+        let users = manager.get_all_users();
+        
+        println!("{:?}\n", users);
     }
 }

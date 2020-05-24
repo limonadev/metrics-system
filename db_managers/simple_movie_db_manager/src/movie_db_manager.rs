@@ -23,10 +23,6 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
             .load::<QueryableUser>(&self.connector)
             .expect("Failed query of users with the username specified");
 
-        if query_result.is_empty() {
-            return Vec::new();
-        }
-
         let mut result = Vec::new();
 
         for selected_user in &query_result {
@@ -49,7 +45,7 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
         let query_result = users::table.filter(users::id.eq(uid as i32))
             .limit(1)
             .load::<QueryableUser>(&self.connector)
-            .expect("Failed query of users with the uid specified");
+            .expect("Failed query of user with the uid specified");
 
         if query_result.is_empty() {
             return Vec::new();
@@ -78,6 +74,25 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
     }
 
     fn get_all_users(&self) -> Vec<MovieUser> {
-        todo!()
+        let query_result = users::table
+            .load::<QueryableUser>(&self.connector)
+            .expect("Failed query of all users");
+
+        let mut result = Vec::new();
+
+        for selected_user in &query_result {
+            let query_result = ratings::table.filter(ratings::user_id.eq(selected_user.id))
+                .load::<QueryableRating>(&self.connector)
+                .expect(&format!("Failed query of ratings of the user {}", selected_user.username));
+            
+            let mut user_ratings = HashMap::new();
+            for rating in &query_result {
+                user_ratings.insert(rating.movie_id as u64, rating.rating);
+            }
+
+            result.push(MovieUser{id: selected_user.id, name: selected_user.username.clone(), ratings: user_ratings});
+        }
+
+        result
     }
 }
