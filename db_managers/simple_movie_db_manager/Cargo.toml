@@ -1,9 +1,12 @@
 [package]
-name = "simple-movie-db-manager"
+name = "simple_movie_db_manager"
 version = "0.1.0"
 authors = ["limonadev <limonadev@whiteleaf.dev>"]
 edition = "2018"
+workspace = "../.."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+diesel = { version = "1.0.0", features = ["postgres"] }
+db_manager = {version="*", path="../../db_manager"}
