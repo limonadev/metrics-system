@@ -7,7 +7,7 @@ use db_manager::Item;
 #[derive(diesel::Queryable)]
 pub struct QueryableItem {
     pub id: i32,
-    pub name: String,
+    pub title: String,
 }
 
 #[derive(Insertable)]

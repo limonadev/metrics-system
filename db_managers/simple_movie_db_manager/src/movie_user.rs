@@ -7,7 +7,7 @@ use db_manager::User;
 #[derive(diesel::Queryable)]
 pub struct QueryableUser {
     pub id: i32,
-    pub name: String,
+    pub username: String,
 }
 
 #[derive(Insertable)]
@@ -16,6 +16,7 @@ pub struct NewUser {
     pub username: String,
 }
 
+#[derive(Debug)]
 pub struct MovieUser {
     pub id: i32,
     pub name: String,
