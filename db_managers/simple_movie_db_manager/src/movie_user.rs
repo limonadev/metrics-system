@@ -1,11 +1,19 @@
 use std::collections::HashMap;
 
+use crate::schema::*;
+
 use db_manager::User;
 
 #[derive(diesel::Queryable)]
 pub struct QueryableUser {
     pub id: i32,
     pub name: String,
+}
+
+#[derive(Insertable)]
+#[table_name="users"]
+pub struct NewUser {
+    pub username: String,
 }
 
 pub struct MovieUser {

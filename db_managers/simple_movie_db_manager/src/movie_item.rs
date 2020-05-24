@@ -1,11 +1,19 @@
 use std::collections::HashMap;
 
+use crate::schema::*;
+
 use db_manager::Item;
 
 #[derive(diesel::Queryable)]
 pub struct QueryableItem {
     pub id: i32,
     pub name: String,
+}
+
+#[derive(Insertable)]
+#[table_name="movies"]
+pub struct NewMovie {
+    pub title: String,
 }
 
 pub struct MovieItem {

@@ -10,3 +10,4 @@ workspace = "../.."
 [dependencies]
 diesel = { version = "1.0.0", features = ["postgres"] }
 db_manager = {version="*", path="../../db_manager"}
+csv = "1.1"
