@@ -46,7 +46,27 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
     }
 
     fn get_user_by_id(&self, uid: u64) -> Vec<MovieUser> {
-        todo!()
+        let query_result = users::table.filter(users::id.eq(uid as i32))
+            .limit(1)
+            .load::<QueryableUser>(&self.connector)
+            .expect("Failed query of users with the uid specified");
+
+        if query_result.is_empty() {
+            return Vec::new();
+        }
+
+        let selected_user = &query_result[0];
+
+        let query_result = ratings::table.filter(ratings::user_id.eq(selected_user.id))
+            .load::<QueryableRating>(&self.connector)
+            .expect(&format!("Failed query of ratings of the user {}", selected_user.username));
+        
+        let mut user_ratings = HashMap::new();
+        for rating in &query_result {
+            user_ratings.insert(rating.movie_id as u64, rating.rating);
+        }
+
+        vec![MovieUser{id: selected_user.id, name: selected_user.username.clone(), ratings: user_ratings}]
     }
 
     fn get_item_by_name(&self, name: &str) -> Vec<MovieItem> {
