@@ -21,12 +21,20 @@ mod tests {
         
         println!("{:?}\n", users);
 
-        let users = manager.get_user_by_id(15);
+        let users = manager.get_user_by_id(10);
         
         println!("{:?}\n", users);
 
         let users = manager.get_all_users();
         
         println!("{:?}\n", users);
+
+        let movies = manager.get_item_by_name("Avatar");
+        
+        println!("{:?}\n", movies);
+
+        let movies = manager.get_item_by_id(2);
+        
+        println!("{:?}\n", movies);
     }
 }

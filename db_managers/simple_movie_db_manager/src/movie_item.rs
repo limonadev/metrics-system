@@ -16,10 +16,10 @@ pub struct NewMovie {
     pub title: String,
 }
 
+#[derive(Debug)]
 pub struct MovieItem {
     pub id: i32,
-    pub name: String,
-    pub ratings: HashMap<u64, f64>
+    pub name: String
 }
 
 impl Item for MovieItem {

@@ -5,7 +5,7 @@ use diesel::pg::PgConnection;
 
 use db_manager::DBManager;
 
-use crate::schema::{users, ratings};
+use crate::schema::{users, movies, ratings};
 use crate::{movie_user::{MovieUser, QueryableUser}, movie_item::{MovieItem, QueryableItem}, movie_rating::{QueryableRating}};
 
 pub struct MovieDBManager {
@@ -66,11 +66,29 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
     }
 
     fn get_item_by_name(&self, name: &str) -> Vec<MovieItem> {
-        todo!()
+        let query_result = movies::table.filter(movies::title.eq(name))
+            .load::<QueryableItem>(&self.connector)
+            .expect("Failed query of movie with the given title");
+
+        let mut result = Vec::new();
+
+        for movie in &query_result {
+            result.push(MovieItem{id: movie.id, name: movie.title.clone()});
+        }
+
+        result
     }
 
     fn get_item_by_id(&self, uid: u64) -> Vec<MovieItem> {
-        todo!()
+        let query_result = movies::table.filter(movies::id.eq(uid as i32))
+            .load::<QueryableItem>(&self.connector)
+            .expect("Failed query of movie with the given uid");
+
+        if query_result.is_empty() {
+            return Vec::new();
+        }
+
+        vec![MovieItem{id: query_result[0].id, name: query_result[0].title.clone()}]
     }
 
     fn get_all_users(&self) -> Vec<MovieUser> {
