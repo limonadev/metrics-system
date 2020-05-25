@@ -32,7 +32,7 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
             
             let mut user_ratings = HashMap::new();
             for rating in &query_result {
-                user_ratings.insert(rating.movie_id as u64, rating.rating);
+                user_ratings.insert(rating.movie_id, rating.rating);
             }
 
             result.push(MovieUser{id: selected_user.id, name: selected_user.username.clone(), ratings: user_ratings});
@@ -41,7 +41,7 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
         result
     }
 
-    fn get_user_by_id(&self, uid: u64) -> Vec<MovieUser> {
+    fn get_user_by_id(&self, uid: i32) -> Vec<MovieUser> {
         let query_result = users::table.filter(users::id.eq(uid as i32))
             .limit(1)
             .load::<QueryableUser>(&self.connector)
@@ -59,7 +59,7 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
         
         let mut user_ratings = HashMap::new();
         for rating in &query_result {
-            user_ratings.insert(rating.movie_id as u64, rating.rating);
+            user_ratings.insert(rating.movie_id, rating.rating);
         }
 
         vec![MovieUser{id: selected_user.id, name: selected_user.username.clone(), ratings: user_ratings}]
@@ -79,7 +79,7 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
         result
     }
 
-    fn get_item_by_id(&self, uid: u64) -> Vec<MovieItem> {
+    fn get_item_by_id(&self, uid: i32) -> Vec<MovieItem> {
         let query_result = movies::table.filter(movies::id.eq(uid as i32))
             .load::<QueryableItem>(&self.connector)
             .expect("Failed query of movie with the given uid");
@@ -105,7 +105,7 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
             
             let mut user_ratings = HashMap::new();
             for rating in &query_result {
-                user_ratings.insert(rating.movie_id as u64, rating.rating);
+                user_ratings.insert(rating.movie_id, rating.rating);
             }
 
             result.push(MovieUser{id: selected_user.id, name: selected_user.username.clone(), ratings: user_ratings});

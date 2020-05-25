@@ -23,6 +23,8 @@ pub struct MovieItem {
 }
 
 impl Item for MovieItem {
+    type ID = i32;
+    
     fn id(&self) -> u64 {
         self.id as u64
     }
