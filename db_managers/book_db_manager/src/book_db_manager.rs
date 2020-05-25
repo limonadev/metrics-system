@@ -111,4 +111,20 @@ impl DBManager<BookUser, BookItem> for BookDBManager {
 
         result
     }
+
+    fn get_all_ratings(&self) -> HashMap<i32, HashMap<String, f64>> {
+        let query_result = ratings::table
+            .load::<QueryableRating>(&self.connector)
+            .expect("Failed to fetch all ratings");
+
+        let mut result = HashMap::new();
+        for rating in &query_result {
+            if !result.contains_key(&rating.user_id) {
+                result.insert(rating.user_id, HashMap::new());
+            }
+            let user_ratings = result.get_mut(&rating.user_id).unwrap();
+            user_ratings.insert(rating.book_id.clone(), rating.rating);
+        }
+        result
+    }
 }

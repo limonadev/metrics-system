@@ -37,5 +37,13 @@ mod tests {
         let books = manager.get_item_by_id(String::from("adsa"));
         
         println!("{:?}\n", books);
+
+        let ratings = manager.get_all_ratings();
+
+        println!("{:?}\n", ratings[&2]);
+
+        let users = manager.get_user_by_id(2);
+
+        println!("{:?}\n", users);
     }
 }
