@@ -6,7 +6,7 @@ pub trait DBManager<U: User<I>, I: Item> {
     fn get_user_by_name(&self, name: &str) -> Vec<U>;
     fn get_user_by_id(&self, uid: U::ID) -> Vec<U>;
     fn get_item_by_name(&self, name: &str) -> Vec<I>;
-    fn get_item_by_id(&self, uid: U::ID) -> Vec<I>;
+    fn get_item_by_id(&self, uid: I::ID) -> Vec<I>;
     fn get_all_users(&self) -> Vec<U>;
 }
 
