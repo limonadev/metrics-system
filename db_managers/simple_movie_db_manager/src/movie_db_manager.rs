@@ -113,4 +113,20 @@ impl DBManager<MovieUser, MovieItem> for MovieDBManager {
 
         result
     }
+
+    fn get_all_ratings(&self) -> HashMap<i32, HashMap<i32, f64>> {
+        let query_result = ratings::table
+            .load::<QueryableRating>(&self.connector)
+            .expect("Failed to fetch all ratings");
+
+        let mut result = HashMap::new();
+        for rating in &query_result {
+            if !result.contains_key(&rating.user_id) {
+                result.insert(rating.user_id, HashMap::new());
+            }
+            let user_ratings = result.get_mut(&rating.user_id).unwrap();
+            user_ratings.insert(rating.movie_id, rating.rating);
+        }
+        result
+    }
 }

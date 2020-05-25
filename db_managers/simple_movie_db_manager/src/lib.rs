@@ -36,5 +36,15 @@ mod tests {
         let movies = manager.get_item_by_id(2);
         
         println!("{:?}\n", movies);
+
+
+        //Testing the new get_all_ratings() versus the result obtained by get_user_by_id()
+        let ratings = manager.get_all_ratings();
+        
+        println!("{:?}\n", ratings[&21]);
+
+        let users = manager.get_user_by_id(21);
+        
+        println!("{:?}\n", users);
     }
 }

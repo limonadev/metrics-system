@@ -8,6 +8,7 @@ pub trait DBManager<U: User<I>, I: Item> {
     fn get_item_by_name(&self, name: &str) -> Vec<I>;
     fn get_item_by_id(&self, uid: I::ID) -> Vec<I>;
     fn get_all_users(&self) -> Vec<U>;
+    fn get_all_ratings(&self) -> HashMap<U::ID, HashMap<I::ID, f64>>;
 }
 
 pub trait User<I: Item> {
