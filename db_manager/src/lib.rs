@@ -13,7 +13,7 @@ pub trait DBManager<U: User<I>, I: Item> {
 pub trait User<I: Item> {
     type ID;
 
-    fn id(&self) -> u64;
+    fn id(&self) -> Self::ID;
     fn name(&self) -> String;
     fn data(&self) -> HashMap<String, String>;
     fn ratings(&self) -> HashMap<I::ID, f64>;
@@ -22,7 +22,7 @@ pub trait User<I: Item> {
 pub trait Item {
     type ID;
 
-    fn id(&self) -> u64;
+    fn id(&self) -> Self::ID;
     fn name(&self) -> String;
     fn data(&self) -> HashMap<String, String>;
 }

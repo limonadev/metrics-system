@@ -25,8 +25,8 @@ pub struct MovieItem {
 impl Item for MovieItem {
     type ID = i32;
     
-    fn id(&self) -> u64 {
-        self.id as u64
+    fn id(&self) -> i32 {
+        self.id
     }
     fn name(&self) -> String {
         self.name.clone()

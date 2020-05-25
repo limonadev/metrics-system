@@ -27,8 +27,8 @@ pub struct MovieUser {
 impl User<MovieItem> for MovieUser {
     type ID = i32;
 
-    fn id(&self) -> u64 {
-        self.id as u64
+    fn id(&self) -> i32 {
+        self.id as i32
     }
     fn name(&self) -> String {
         self.name.clone()
