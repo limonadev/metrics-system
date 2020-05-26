@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::BinaryHeap;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -7,12 +8,45 @@ use simple_movie_db_manager::{movie_db_manager::MovieDBManager, movie_user::Movi
 use book_db_manager::{book_db_manager::BookDBManager, book_user::BookUser, book_item::BookItem};
 use small_movielens_db_manager::{small_movielens_db_manager::SmallMovielensDBManager, movie_user::SMovieLensUser, movie_item::SMovieLensItem};
 
+#[derive(Clone)]
+enum KNNMetric {
+    Manhattan,
+    Euclidean,
+    Minkowski(i32)
+}
+
+struct PairDist<U> {
+    id:U,
+    value:f64
+}
+
+impl<U> Eq for PairDist<U> {}
+
+impl<U> PartialEq for PairDist<U> {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl<U> PartialOrd for PairDist<U> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.value.partial_cmp(&other.value)
+    }
+}
+
+impl<U> Ord for PairDist<U> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.value.partial_cmp(&other.value).unwrap()
+    }
+}
+
 pub struct Engine<U, I> {
     phantom_U: PhantomData<U>,
     phantom_I: PhantomData<I>
 }
 
-impl<U:Hash+Eq,I:Hash+Eq> Engine<U,I> {
+impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
+
     fn manhattan_distance_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
         Self::minkowski_distance_between(self, first, second, 1)
     }
@@ -90,11 +124,38 @@ impl<U:Hash+Eq,I:Hash+Eq> Engine<U,I> {
         1.0 - Self::jaccard_distance_between(self, first, second)
     }
 
-    fn k_nearest_neighbors(&self, k:i32, ratings:HashMap<U,HashMap<I,f64>>) -> Vec<U>{
-        for r in &ratings {
-            
+    fn k_nearest_neighbors(&self, k:i32, target:U, ratings:&HashMap<U,HashMap<I,f64>>, metric: KNNMetric) -> Vec<PairDist<U>>{
+        let mut max_heap:BinaryHeap<PairDist<U>> = BinaryHeap::new();
+
+        let target_ratings = ratings.get(&target).unwrap();
+        let mut ratings_without_user = ratings.clone();
+        ratings_without_user.remove(&target);
+
+        for (u, u_ratings) in &ratings_without_user {
+            let dist = match metric {
+                KNNMetric::Manhattan => {Self::manhattan_distance_between(self, target_ratings, u_ratings)}
+                KNNMetric::Euclidean => {Self::euclidean_distance_between(self, target_ratings, u_ratings)}
+                KNNMetric::Minkowski(grade) => {Self::minkowski_distance_between(self, target_ratings, u_ratings, grade)}
+            };
+            let pair_dist = PairDist::<U> {id: u.clone(), value: dist};
+            if max_heap.len() < k as usize {
+                max_heap.push(pair_dist);
+            } else {
+                if max_heap.peek().unwrap() > &pair_dist {
+                    max_heap.pop();
+                    max_heap.push(pair_dist);
+                }
+            }
         }
-        Vec::new()
+
+        let mut k_neighbors = Vec::new();
+        while max_heap.len() > 0 {
+            let pair = max_heap.peek().unwrap();
+            k_neighbors.push(PairDist::<U>{id: pair.id.clone(), value:pair.value});
+            max_heap.pop();
+        }
+        k_neighbors.reverse();
+        k_neighbors
     }
 }
 
@@ -874,14 +935,115 @@ fn get_jaccard_index_by_id(database:&Database, first:String, second:String) {
     }
 }
 
+fn get_k_neighbors_by_name(database:&Database, k:i32, target:String, metric:KNNMetric) {
+    match database {
+        Database::SimpleMovies{url} => {
+            let manager = MovieDBManager::connect_to(&url);
+            let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            let users_with_target_name = manager.get_user_by_name(&target);
+
+            if users_with_target_name.is_empty() {
+                println!("No user with name {} found!", target);
+                return;
+            }
+
+            let all_ratings = manager.get_all_ratings();
+
+            for u_target in &users_with_target_name {
+                let k_neighbors = engine.k_nearest_neighbors(k, u_target.id, &all_ratings, metric.clone());
+                println!("In SimpleMovies for user {} the {} nearest neighbors are:", u_target.name, k);
+                for n in k_neighbors {
+                    let neighbor:&MovieUser = &manager.get_user_by_id(n.id)[0];
+                    println!("Neighbor {} with id {} with distance: {}", neighbor.name, neighbor.id, n.value);
+                }
+            }
+        },
+        Database::Books{url} => {
+            println!("Books Database has not user names!");
+        }
+        Database::SmallMovieLens{url} => {
+            println!("Small MovieLens Database has not user names!");
+        }
+    }
+}
+
+fn get_k_neighbors_by_id(database:&Database, k:i32, target:String, metric:KNNMetric) {
+    match database {
+        Database::SimpleMovies{url} => {
+            let manager = MovieDBManager::connect_to(&url);
+            let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            let targets = manager.get_user_by_id(target.parse().expect("Failed to parse target id in K Neighbors"));
+            
+            if targets.is_empty() {
+                println!("No user with id {} found!", target);
+                return;
+            }
+
+            let user_target = &targets[0];
+            let all_ratings = manager.get_all_ratings();
+
+            let k_neighbors = engine.k_nearest_neighbors(k, user_target.id, &all_ratings, metric.clone());
+
+            println!("In SimpleMovies for id {} with user name {} the {} nearest neighbors are:", user_target.id, user_target.name, k);
+            for n in k_neighbors {
+                let neighbor:&MovieUser = &manager.get_user_by_id(n.id)[0];
+                println!("Neighbor {} with id {} with distance: {}", neighbor.name, neighbor.id, n.value);
+            }
+        },
+        Database::Books{url} => {
+            let manager = BookDBManager::connect_to(&url);
+            let engine = Engine::<i32,String> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            let targets = manager.get_user_by_id(target.parse().expect("Failed to parse target id in K Neighbors"));
+            
+            if targets.is_empty() {
+                println!("No user with id {} found!", target);
+                return;
+            }
+
+            let user_target = &targets[0];
+            let all_ratings = manager.get_all_ratings();
+
+            let k_neighbors = engine.k_nearest_neighbors(k, user_target.id, &all_ratings, metric.clone());
+
+            println!("In Books for user {} the {} nearest neighbors are:", user_target.id, k);
+            for n in k_neighbors {
+                let neighbor:&BookUser = &manager.get_user_by_id(n.id)[0];
+                println!("Neighbor with id {} with distance: {}", neighbor.id, n.value);
+            }
+        }
+        Database::SmallMovieLens{url} => {
+            let manager = SmallMovielensDBManager::connect_to(&url);
+            let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            let targets = manager.get_user_by_id(target.parse().expect("Failed to parse target id in K Neighbors"));
+            
+            if targets.is_empty() {
+                println!("No user with id {} found!", target);
+                return;
+            }
+
+            let user_target = &targets[0];
+            let all_ratings = manager.get_all_ratings();
+
+            let k_neighbors = engine.k_nearest_neighbors(k, user_target.id, &all_ratings, metric.clone());
+
+            println!("InSmallMovieLens for user {} the {} nearest neighbors are:", user_target.id, k);
+            for n in k_neighbors {
+                let neighbor:&SMovieLensUser = &manager.get_user_by_id(n.id)[0];
+                println!("Neighbor with id {} with distance: {}", neighbor.id, n.value);
+            }
+        }
+    }
+}
 
 fn main() {
 
     let simple_movies_database = Database::SimpleMovies{url: String::from("postgres://ademir:@localhost/simple_movies")};
     let books_database = Database::Books{url: String::from("postgres://ademir:@localhost/books")};
     let small_movielens_database = Database::SmallMovieLens{url: String::from("postgres://ademir:@localhost/small_movielens")};
-    
-    //get_manhattan_distance_by_name(simple_movies_database, String::new(), String::new());
 
     get_manhattan_distance_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_manhattan_distance_by_id(&simple_movies_database, String::from("1"), String::from("2"));
@@ -907,4 +1069,7 @@ fn main() {
 
     get_jaccard_index_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_jaccard_index_by_id(&simple_movies_database, String::from("1"), String::from("2"));
+
+    get_k_neighbors_by_name(&simple_movies_database, 4, String::from("Patrick C"), KNNMetric::Manhattan);
+    get_k_neighbors_by_id(&simple_movies_database, 4, String::from("1"), KNNMetric::Manhattan);
 }
