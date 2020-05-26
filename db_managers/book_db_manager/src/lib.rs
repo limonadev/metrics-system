@@ -30,11 +30,11 @@ mod tests {
         
         //println!("{:?}\n", users);
 
-        let books = manager.get_item_by_name("Avatar");
+        let books = manager.get_item_by_name("Clara Callan");
         
         println!("{:?}\n", books);
 
-        let books = manager.get_item_by_id(String::from("adsa"));
+        let books = manager.get_item_by_id(String::from("0002005018"));
         
         println!("{:?}\n", books);
 
