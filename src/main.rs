@@ -33,6 +33,30 @@ impl<U:Hash+Eq,I:Hash+Eq> Engine<U,I> {
         distance
     }
 
+    fn pearson_correlation_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
+        let mut sum_x_by_y = 0.0;
+        let mut sum_x = 0.0;
+        let mut sum_y = 0.0;
+        let mut sum_x_squared = 0.0;
+        let mut sum_y_squared = 0.0;
+        let mut n = 1.0;
+        for (item_id, first_ranking) in first {
+            if let Some(second_ranking) = second.get(item_id) {
+                sum_x_by_y += first_ranking*second_ranking;
+                sum_x += first_ranking;
+                sum_y += second_ranking;
+                sum_x_squared += first_ranking.powi(2);
+                sum_y_squared += second_ranking.powi(2);
+                n += 1.0;
+            }
+        }
+        let numerator = sum_x_by_y - ((sum_x*sum_y)/n);
+        let first_root = (sum_x_squared - (sum_x.powi(2)/n)).sqrt();
+        let second_root = (sum_y_squared - (sum_y.powi(2)/n)).sqrt();
+        let denominator = first_root*second_root;
+        numerator/denominator
+    }
+
     fn cosine_similarity_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
         let mut first_len = 0.0;
         let mut second_len = 0.0;
@@ -410,6 +434,116 @@ fn get_minkowski_distance_by_id(database:&Database, first:String, second:String,
     }
 }
 
+fn get_pearson_correlation_by_name(database:&Database, first:String, second:String) {
+    match database {
+        Database::SimpleMovies{url} => {
+            let manager = MovieDBManager::connect_to(&url);
+            let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            let users_named_first = manager.get_user_by_name(&first);
+            let users_named_second = manager.get_user_by_name(&second);
+
+            if users_named_first.is_empty() {
+                println!("No user with name {} found!", first);
+                return;
+            }
+            if users_named_second.is_empty() {
+                println!("No user with name {} found!", second);
+                return;
+            }
+
+            for first_user in &users_named_first {
+                let current_first_ratings = first_user.ratings();
+                for second_user in &users_named_second {
+                    let current_second_ratings = second_user.ratings();
+                    let correlation = engine.pearson_correlation_between(&current_first_ratings, &current_second_ratings);
+                    println!("SimpleMovies Pearson Correlation between {} and {} is {}", first_user.name, second_user.name, correlation);
+                }
+            }
+        },
+        Database::Books{url} => {
+            println!("Books Database has not user names!");
+        }
+        Database::SmallMovieLens{url} => {
+            println!("Small MovieLens Database has not user names!");
+        }
+    }
+}
+
+fn get_pearson_correlation_by_id(database:&Database, first:String, second:String) {
+    match database {
+        Database::SimpleMovies{url} => {
+            let manager = MovieDBManager::connect_to(&url);
+            let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            let users_named_first = manager.get_user_by_id(first.parse().expect("Failed to parse first id in Pearson Correlation"));
+            let users_named_second = manager.get_user_by_id(second.parse().expect("Failed to parse second id in Pearson Correlation"));
+
+            if users_named_first.is_empty() {
+                println!("No user with id {} found!", first);
+                return;
+            }
+            if users_named_second.is_empty() {
+                println!("No user with id {} found!", second);
+                return;
+            }
+
+            let first_user = &users_named_first[0];
+            let second_user = &users_named_second[0];
+
+            let correlation = engine.pearson_correlation_between(&first_user.ratings(), &second_user.ratings());
+
+            println!("SimpleMovies Pearson Correlation between id {} and id {} is {}", first_user.id, second_user.id, correlation);
+        },
+        Database::Books{url} => {
+            let manager = BookDBManager::connect_to(&url);
+            let engine = Engine::<i32,String> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            let users_named_first = manager.get_user_by_id(first.parse().expect("Failed to parse first id in Pearson Correlation"));
+            let users_named_second = manager.get_user_by_id(second.parse().expect("Failed to parse second id in Pearson Correlation"));
+
+            if users_named_first.is_empty() {
+                println!("No user with id {} found!", first);
+                return;
+            }
+            if users_named_second.is_empty() {
+                println!("No user with id {} found!", second);
+                return;
+            }
+
+            let first_user = &users_named_first[0];
+            let second_user = &users_named_second[0];
+
+            let correlation = engine.pearson_correlation_between(&first_user.ratings(), &second_user.ratings());
+
+            println!("Books Pearson Correlation between id {} and id {} is {}", first_user.id, second_user.id, correlation);
+        }
+        Database::SmallMovieLens{url} => {
+            let manager = SmallMovielensDBManager::connect_to(&url);
+            let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            let users_named_first = manager.get_user_by_id(first.parse().expect("Failed to parse first id in Pearson Correlation"));
+            let users_named_second = manager.get_user_by_id(second.parse().expect("Failed to parse second id in Pearson Correlation"));
+
+            if users_named_first.is_empty() {
+                println!("No user with id {} found!", first);
+                return;
+            }
+            if users_named_second.is_empty() {
+                println!("No user with id {} found!", second);
+                return;
+            }
+
+            let first_user = &users_named_first[0];
+            let second_user = &users_named_second[0];
+
+            let correlation = engine.pearson_correlation_between(&first_user.ratings(), &second_user.ratings());
+
+            println!("SmallMovieLens Pearson Correlation between id {} and id {} is {}", first_user.id, second_user.id, correlation);
+        }
+    }
+}
+
 fn get_cosine_similarity_by_name(database:&Database, first:String, second:String) {
     match database {
         Database::SimpleMovies{url} => {
@@ -761,6 +895,9 @@ fn main() {
     get_minkowski_distance_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"), 2);
     get_minkowski_distance_by_id(&simple_movies_database, String::from("1"), String::from("2"), 2);
     //get_minkowski_distance_by_id(&books_database, String::from("26182"), String::from("269352"), 2);
+
+    get_pearson_correlation_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
+    get_pearson_correlation_by_id(&simple_movies_database, String::from("1"), String::from("2"));
 
     get_cosine_similarity_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_cosine_similarity_by_id(&simple_movies_database, String::from("1"), String::from("2"));
