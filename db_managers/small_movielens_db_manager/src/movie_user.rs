@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::schema::*;
 
 use db_manager::User;
-use crate::movie_item::MovieItem;
+use crate::movie_item::SMovieLensItem;
 
 #[derive(diesel::Queryable)]
 pub struct QueryableUser {
@@ -17,12 +17,12 @@ pub struct NewUser {
 }
 
 #[derive(Debug)]
-pub struct MovieUser {
+pub struct SMovieLensUser {
     pub id: i32,
     pub ratings: HashMap<i32, f64>
 }
 
-impl User<MovieItem> for MovieUser {
+impl User<SMovieLensItem> for SMovieLensUser {
     type ID = i32;
 
     fn id(&self) -> i32 {

@@ -131,6 +131,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "metrics-system"
 version = "0.1.0"
+dependencies = [
+ "book_db_manager 0.1.0",
+ "db_manager 0.1.0",
+ "simple_movie_db_manager 0.1.0",
+ "small_movielens_db_manager 0.1.0",
+]
 
 [[package]]
 name = "number_prefix"

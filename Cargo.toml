@@ -10,3 +10,7 @@ edition = "2018"
 members = ["db_manager", "db_managers/*"]
 
 [dependencies]
+db_manager = {version="*", path="./db_manager"}
+simple_movie_db_manager = {version="*", path="./db_managers/simple_movie_db_manager"}
+book_db_manager = {version="*", path="./db_managers/book_db_manager"}
+small_movielens_db_manager = {version="*", path="./db_managers/small_movielens_db_manager"}

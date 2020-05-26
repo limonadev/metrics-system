@@ -20,13 +20,13 @@ pub struct NewMovie {
 }
 
 #[derive(Debug)]
-pub struct MovieItem {
+pub struct SMovieLensItem {
     pub id: i32,
     pub title: String,
     pub extra_data: HashMap<String, String>
 }
 
-impl Item for MovieItem {
+impl Item for SMovieLensItem {
     type ID = i32;
     
     fn id(&self) -> i32 {
@@ -40,12 +40,12 @@ impl Item for MovieItem {
     }
 }
 
-impl MovieItem {
-    pub fn create(id:i32, title:String, genres:String) -> MovieItem {
+impl SMovieLensItem {
+    pub fn create(id:i32, title:String, genres:String) -> SMovieLensItem {
         let mut extra_data:HashMap<String,String> = HashMap::new();
 
         extra_data.insert(String::from("Genres"), genres);
 
-        MovieItem{id: id, title: title, extra_data: extra_data}
+        SMovieLensItem{id: id, title: title, extra_data: extra_data}
     }
 }
