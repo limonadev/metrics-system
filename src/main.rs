@@ -1090,7 +1090,7 @@ fn get_k_neighbors_by_id(database:&Database, k:i32, target:String, metric:KNNMet
 
             let k_neighbors = engine.k_nearest_neighbors(k, user_target.id, &all_ratings, metric.clone());
 
-            println!("InSmallMovieLens for user {} the {} nearest neighbors are:", user_target.id, k);
+            println!("In SmallMovieLens for user {} the {} nearest neighbors are:", user_target.id, k);
             for n in k_neighbors {
                 let neighbor:&SMovieLensUser = &manager.get_user_by_id(n.id)[0];
                 println!("Neighbor with id {} with distance: {}", neighbor.id, n.value);
@@ -1549,12 +1549,22 @@ fn main() {
     get_jaccard_index_by_id(&small_movielens_database, String::from("125"), String::from("567"));
     println!();
 
-    get_k_neighbors_by_name(&simple_movies_database, 5, String::from("Patrick C"), KNNMetric::Manhattan);
-    get_k_neighbors_by_id(&simple_movies_database, 5, String::from("1"), KNNMetric::Manhattan);
-    get_k_neighbors_by_name(&simple_movies_database, 5, String::from("Patrick C"), KNNMetric::Pearson);
-    get_k_neighbors_by_id(&simple_movies_database, 5, String::from("1"), KNNMetric::Pearson);
-    get_k_neighbors_by_name(&simple_movies_database, 5, String::from("Patrick C"), KNNMetric::Cosine);
-    get_k_neighbors_by_id(&simple_movies_database, 5, String::from("1"), KNNMetric::Cosine);
+    get_k_neighbors_by_name(&simple_movies_database, 3, String::from("Patrick C"), KNNMetric::Manhattan);
+    get_k_neighbors_by_id(&simple_movies_database, 3, String::from("1"), KNNMetric::Manhattan);
+    get_k_neighbors_by_name(&simple_movies_database, 3, String::from("Patrick C"), KNNMetric::Pearson);
+    get_k_neighbors_by_id(&simple_movies_database, 3, String::from("1"), KNNMetric::Pearson);
+    get_k_neighbors_by_name(&simple_movies_database, 3, String::from("Patrick C"), KNNMetric::Cosine);
+    get_k_neighbors_by_id(&simple_movies_database, 3, String::from("1"), KNNMetric::Cosine);
+    println!();
+
+    get_k_neighbors_by_id(&books_database, 3, String::from("26182"), KNNMetric::Manhattan);
+    get_k_neighbors_by_id(&books_database, 3, String::from("26182"), KNNMetric::Pearson);
+    get_k_neighbors_by_id(&books_database, 3, String::from("26182"), KNNMetric::Cosine);
+    println!();
+
+    get_k_neighbors_by_id(&small_movielens_database, 3, String::from("567"), KNNMetric::Manhattan);
+    get_k_neighbors_by_id(&small_movielens_database, 3, String::from("567"), KNNMetric::Pearson);
+    get_k_neighbors_by_id(&small_movielens_database, 3, String::from("567"), KNNMetric::Cosine);
     println!();
 
     prediction_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None, Some(String::from("Gladiator")), None);
