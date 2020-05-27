@@ -14,7 +14,8 @@ enum KNNMetric {
     Manhattan,
     Euclidean,
     Minkowski(i32),
-    Pearson
+    Pearson,
+    Cosine
 }
 
 struct PairDist<U> {
@@ -137,7 +138,7 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
         1.0 - Self::jaccard_index_between(self, first, second)
     }
 
-    fn pearson_nearest_neighbors(&self, k:i32, target:U, ratings:&HashMap<U,HashMap<I,f64>>) -> Vec<PairDist<U>> {
+    fn pearson_cosine_nearest_neighbors(&self, k:i32, target:U, ratings:&HashMap<U,HashMap<I,f64>>, metric:KNNMetric) -> Vec<PairDist<U>> {
         let mut min_heap = BinaryHeap::new();
 
         let target_ratings = ratings.get(&target).unwrap();
@@ -145,7 +146,17 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
         ratings_without_user.remove(&target);
 
         for (u, u_ratings) in &ratings_without_user {
-            let dist = Self::pearson_correlation_between(self, target_ratings, u_ratings);
+            let dist = match metric {
+                KNNMetric::Manhattan => {0.0}
+                KNNMetric::Euclidean => {0.0}
+                KNNMetric::Minkowski(_) => {0.0}
+                KNNMetric::Pearson => {
+                    Self::pearson_correlation_between(self, target_ratings, u_ratings)
+                }
+                KNNMetric::Cosine => {
+                    Self::cosine_similarity_between(self, target_ratings, u_ratings)
+                }
+            };
             let pair_dist = PairDist::<U> {id: u.clone(), value: dist};
             if min_heap.len() < k as usize {
                 min_heap.push(Reverse(pair_dist));
@@ -168,8 +179,8 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
     }
 
     fn k_nearest_neighbors(&self, k:i32, target:U, ratings:&HashMap<U,HashMap<I,f64>>, metric: KNNMetric) -> Vec<PairDist<U>>{
-        if KNNMetric::Pearson == metric {
-            return Self::pearson_nearest_neighbors(self, k, target, ratings);
+        if KNNMetric::Pearson == metric || KNNMetric::Cosine == metric {
+            return Self::pearson_cosine_nearest_neighbors(self, k, target, ratings, metric);
         }
 
         let mut max_heap:BinaryHeap<PairDist<U>> = BinaryHeap::new();
@@ -183,7 +194,8 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
                 KNNMetric::Manhattan => {Self::manhattan_distance_between(self, target_ratings, u_ratings)}
                 KNNMetric::Euclidean => {Self::euclidean_distance_between(self, target_ratings, u_ratings)}
                 KNNMetric::Minkowski(grade) => {Self::minkowski_distance_between(self, target_ratings, u_ratings, grade)}
-                KNNMetric::Pearson => 0.0
+                KNNMetric::Pearson => {0.0},
+                KNNMetric::Cosine => {0.0}
             };
             let pair_dist = PairDist::<U> {id: u.clone(), value: dist};
             if max_heap.len() < k as usize {
@@ -1535,6 +1547,14 @@ fn main() {
     get_jaccard_index_by_id(&simple_movies_database, String::from("1"), String::from("2"));
     get_jaccard_index_by_id(&books_database, String::from("26182"), String::from("37400"));
     get_jaccard_index_by_id(&small_movielens_database, String::from("125"), String::from("567"));
+    println!();
+
+    get_k_neighbors_by_name(&simple_movies_database, 5, String::from("Patrick C"), KNNMetric::Manhattan);
+    get_k_neighbors_by_id(&simple_movies_database, 5, String::from("1"), KNNMetric::Manhattan);
+    get_k_neighbors_by_name(&simple_movies_database, 5, String::from("Patrick C"), KNNMetric::Pearson);
+    get_k_neighbors_by_id(&simple_movies_database, 5, String::from("1"), KNNMetric::Pearson);
+    get_k_neighbors_by_name(&simple_movies_database, 5, String::from("Patrick C"), KNNMetric::Cosine);
+    get_k_neighbors_by_id(&simple_movies_database, 5, String::from("1"), KNNMetric::Cosine);
     println!();
 
     prediction_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None, Some(String::from("Gladiator")), None);
