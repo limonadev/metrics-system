@@ -75,7 +75,7 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
         let mut sum_y = 0.0;
         let mut sum_x_squared = 0.0;
         let mut sum_y_squared = 0.0;
-        let mut n = 1.0;
+        let mut n = 0.0;
         for (item_id, first_ranking) in first {
             if let Some(second_ranking) = second.get(item_id) {
                 sum_x_by_y += first_ranking*second_ranking;
@@ -90,6 +90,11 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
         let first_root = (sum_x_squared - (sum_x.powi(2)/n)).sqrt();
         let second_root = (sum_y_squared - (sum_y.powi(2)/n)).sqrt();
         let denominator = first_root*second_root;
+
+        if denominator == 0.0 {
+            return 0.0;
+        }
+
         numerator/denominator
     }
 
@@ -108,6 +113,11 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
 
         first_len = first_len.sqrt();
         second_len = second_len.sqrt();
+
+        if first_len*second_len == 0.0 {
+            return 0.0;
+        }
+
         pointwise_sum/(first_len*second_len)
     }
 
