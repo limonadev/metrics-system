@@ -2,17 +2,19 @@ use std::collections::HashMap;
 use std::collections::BinaryHeap;
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::cmp::Reverse;
 
 use db_manager::{DBManager, User, Item};
 use simple_movie_db_manager::{movie_db_manager::MovieDBManager, movie_user::MovieUser, movie_item::MovieItem};
 use book_db_manager::{book_db_manager::BookDBManager, book_user::BookUser, book_item::BookItem};
 use small_movielens_db_manager::{small_movielens_db_manager::SmallMovielensDBManager, movie_user::SMovieLensUser, movie_item::SMovieLensItem};
 
-#[derive(Clone)]
+#[derive(Clone,PartialEq)]
 enum KNNMetric {
     Manhattan,
     Euclidean,
-    Minkowski(i32)
+    Minkowski(i32),
+    Pearson
 }
 
 struct PairDist<U> {
@@ -64,7 +66,7 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
                 distance += diff;
             }
         }
-        distance
+        distance.powf(1.0/(grade as f64))
     }
 
     fn pearson_correlation_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
@@ -109,7 +111,7 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
         pointwise_sum/(first_len*second_len)
     }
 
-    fn jaccard_distance_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
+    fn jaccard_index_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
         let mut intersection = 0;
         for item_id in first.keys() {
             if second.contains_key(item_id){
@@ -120,11 +122,46 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
         intersection as f64/union as f64
     }
 
-    fn jaccard_index_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
-        1.0 - Self::jaccard_distance_between(self, first, second)
+    fn jaccard_distance_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
+        1.0 - Self::jaccard_index_between(self, first, second)
+    }
+
+    fn pearson_nearest_neighbors(&self, k:i32, target:U, ratings:&HashMap<U,HashMap<I,f64>>) -> Vec<PairDist<U>> {
+        let mut min_heap = BinaryHeap::new();
+
+        let target_ratings = ratings.get(&target).unwrap();
+        let mut ratings_without_user = ratings.clone();
+        ratings_without_user.remove(&target);
+
+        for (u, u_ratings) in &ratings_without_user {
+            let dist = Self::pearson_correlation_between(self, target_ratings, u_ratings);
+            println!("{}",dist);
+            let pair_dist = PairDist::<U> {id: u.clone(), value: dist};
+            if min_heap.len() < k as usize {
+                min_heap.push(Reverse(pair_dist));
+            } else {
+                if min_heap.peek().unwrap().0.value < pair_dist.value {
+                    min_heap.pop();
+                    min_heap.push(Reverse(pair_dist));
+                }
+            }
+        }
+
+        let mut k_neighbors = Vec::new();
+        while min_heap.len() > 0 {
+            let pair = min_heap.peek().unwrap();
+            k_neighbors.push(PairDist::<U>{id: pair.0.id.clone(), value:pair.0.value});
+            min_heap.pop();
+        }
+        k_neighbors.reverse();
+        k_neighbors
     }
 
     fn k_nearest_neighbors(&self, k:i32, target:U, ratings:&HashMap<U,HashMap<I,f64>>, metric: KNNMetric) -> Vec<PairDist<U>>{
+        if KNNMetric::Pearson == metric {
+            return Self::pearson_nearest_neighbors(self, k, target, ratings);
+        }
+
         let mut max_heap:BinaryHeap<PairDist<U>> = BinaryHeap::new();
 
         let target_ratings = ratings.get(&target).unwrap();
@@ -136,6 +173,7 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
                 KNNMetric::Manhattan => {Self::manhattan_distance_between(self, target_ratings, u_ratings)}
                 KNNMetric::Euclidean => {Self::euclidean_distance_between(self, target_ratings, u_ratings)}
                 KNNMetric::Minkowski(grade) => {Self::minkowski_distance_between(self, target_ratings, u_ratings, grade)}
+                KNNMetric::Pearson => 0.0
             };
             let pair_dist = PairDist::<U> {id: u.clone(), value: dist};
             if max_heap.len() < k as usize {
@@ -1039,6 +1077,47 @@ fn get_k_neighbors_by_id(database:&Database, k:i32, target:String, metric:KNNMet
     }
 }
 
+/*fn prediction_with_username_itemname(database:&Database, k:i32, target:String, item_target:String, metric:KNNMetric) {
+    match database {
+        Database::SimpleMovies{url} => {
+            let manager = MovieDBManager::connect_to(&url);
+            let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            let users_with_target_name = manager.get_user_by_name(&target);
+            let items_with_item_target_name = manager.get_item_by_name(&item_target);
+
+            if users_with_target_name.is_empty() {
+                println!("No user with name {} found!", target);
+                return;
+            }
+
+            if items_with_item_target_name.is_empty() {
+                println!("No item with name {} found!", item_target);
+                return;
+            }
+
+            let all_ratings = manager.get_all_ratings();
+
+            for u_target in &users_with_target_name {
+                let k_neighbors = engine.k_nearest_neighbors(k, u_target.id, &all_ratings, metric.clone());
+                let mut real_neighbors = Vec::new();
+                for n in k_neighbors {
+                    let neighbor = manager.get_user_by_id(n.id);
+                    real_neighbors.push(neighbor[0].clone());
+                }
+
+                
+            }
+        },
+        Database::Books{url} => {
+            println!("Books Database has not user names!");
+        }
+        Database::SmallMovieLens{url} => {
+            println!("Small MovieLens Database has not user names!");
+        }
+    }
+}*/
+
 fn main() {
 
     let simple_movies_database = Database::SimpleMovies{url: String::from("postgres://ademir:@localhost/simple_movies")};
@@ -1070,6 +1149,6 @@ fn main() {
     get_jaccard_index_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_jaccard_index_by_id(&simple_movies_database, String::from("1"), String::from("2"));
 
-    get_k_neighbors_by_name(&simple_movies_database, 4, String::from("Patrick C"), KNNMetric::Manhattan);
+    get_k_neighbors_by_name(&simple_movies_database, 4, String::from("Patrick C"), KNNMetric::Pearson);
     get_k_neighbors_by_id(&simple_movies_database, 4, String::from("1"), KNNMetric::Manhattan);
 }

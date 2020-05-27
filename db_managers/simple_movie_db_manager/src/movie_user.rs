@@ -17,7 +17,7 @@ pub struct NewUser {
     pub username: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct MovieUser {
     pub id: i32,
     pub name: String,
