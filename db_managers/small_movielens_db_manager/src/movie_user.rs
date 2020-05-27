@@ -16,7 +16,7 @@ pub struct NewUser {
     pub id: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct SMovieLensUser {
     pub id: i32,
     pub ratings: HashMap<i32, f64>

@@ -86,12 +86,13 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
                 n += 1.0;
             }
         }
+
         let numerator = sum_x_by_y - ((sum_x*sum_y)/n);
         let first_root = (sum_x_squared - (sum_x.powi(2)/n)).sqrt();
         let second_root = (sum_y_squared - (sum_y.powi(2)/n)).sqrt();
         let denominator = first_root*second_root;
 
-        if denominator == 0.0 {
+        if denominator == 0.0 || n == 0.0{
             return 0.0;
         }
 
@@ -1086,46 +1087,211 @@ fn get_k_neighbors_by_id(database:&Database, k:i32, target:String, metric:KNNMet
     }
 }
 
-/*fn prediction_with_username_itemname(database:&Database, k:i32, target:String, item_target:String, metric:KNNMetric) {
+fn prediction_with_k_neighbors(database:&Database, k:i32, target_name:Option<String>, target_id:Option<String>, item_name:Option<String>, item_id:Option<String>) {
     match database {
-        Database::SimpleMovies{url} => {
+        Database::SimpleMovies { url } => {
             let manager = MovieDBManager::connect_to(&url);
             let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
 
-            let users_with_target_name = manager.get_user_by_name(&target);
-            let items_with_item_target_name = manager.get_item_by_name(&item_target);
-
-            if users_with_target_name.is_empty() {
-                println!("No user with name {} found!", target);
+            if target_name == None && target_id == None{
+                println!("You need to specify a user name or a user id");
                 return;
             }
 
-            if items_with_item_target_name.is_empty() {
-                println!("No item with name {} found!", item_target);
+            let mut user_targets = Vec::new();
+            if let Some(user_name) = target_name {
+                user_targets = manager.get_user_by_name(&user_name);
+            }
+            if let Some(user_id) = target_id {
+                user_targets = manager.get_user_by_id(user_id.parse().expect("Failed to parse target id on predictions"));
+            }
+            if user_targets.is_empty() {
+                println!("Not found user with specified ID or Name for prediction");
+                return;
+            }
+
+
+            if item_name == None && item_id == None{
+                println!("You need to specify an item name or an item id");
+                return;
+            }
+
+            let mut item_targets = Vec::new();
+            if let Some(item_name) = item_name {
+                item_targets = manager.get_item_by_name(&item_name);
+            }
+            if let Some(item_id) = item_id {
+                item_targets = manager.get_item_by_id(item_id.parse().expect("Failed to parse item id on predictions"));
+            }
+            if item_targets.is_empty() {
+                println!("Not found item with specified ID or Name for prediction");
                 return;
             }
 
             let all_ratings = manager.get_all_ratings();
 
-            for u_target in &users_with_target_name {
-                let k_neighbors = engine.k_nearest_neighbors(k, u_target.id, &all_ratings, metric.clone());
-                let mut real_neighbors = Vec::new();
-                for n in k_neighbors {
-                    let neighbor = manager.get_user_by_id(n.id);
-                    real_neighbors.push(neighbor[0].clone());
-                }
+            for user in &user_targets {
+                for item in &item_targets {
+                    let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, KNNMetric::Pearson);
+                    let mut neighbors_ratings_for_item = Vec::new();
+                    let mut neighbors_weights = Vec::new();
+                    let mut total = 0.0;
+                    for n in &neighbors {
+                        let real_neighbor = manager.get_user_by_id(n.id)[0].clone();
+                        let neighbor_ratings = real_neighbor.ratings();
+                        if let Some(rating_item) = neighbor_ratings.get(&item.id) {
+                            println!("Neighbor {} with weight {} rated the item {} with: {}", real_neighbor.name, n.value, item.name, rating_item);
+                            neighbors_ratings_for_item.push(rating_item.clone());
+                            neighbors_weights.push(n.value);
+                            total += n.value;
+                        } else {
+                            println!("Neighbor {} didn't rated the item {}", real_neighbor.name, item.name);
+                        }
+                    }
 
-                
+                    let mut predicted = 0.0;
+                    for i in 0..neighbors_weights.len() {
+                        predicted += neighbors_ratings_for_item[i] * (neighbors_weights[i]/total);
+                    }
+
+                    println!("{}", predicted);
+                }
             }
-        },
-        Database::Books{url} => {
-            println!("Books Database has not user names!");
         }
-        Database::SmallMovieLens{url} => {
-            println!("Small MovieLens Database has not user names!");
+        Database::Books { url } => {
+            let manager = BookDBManager::connect_to(&url);
+            let engine = Engine::<i32,String> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            if target_id == None {
+                println!("You need to specify a user id");
+                return;
+            }
+
+            let mut user_targets = Vec::new();
+            if let Some(user_id) = target_id {
+                user_targets = manager.get_user_by_id(user_id.parse().expect("Failed to parse target id on predictions"));
+            }
+            if user_targets.is_empty() {
+                println!("Not found user with specified ID for prediction");
+                return;
+            }
+
+
+            if item_name == None && item_id == None {
+                println!("You need to specify an item name or an item id");
+                return;
+            }
+
+            let mut item_targets = Vec::new();
+            if let Some(item_name) = item_name {
+                item_targets = manager.get_item_by_name(&item_name);
+            }
+            if let Some(item_id) = item_id {
+                item_targets = manager.get_item_by_id(item_id.parse().expect("Failed to parse item id on predictions"));
+            }
+            if item_targets.is_empty() {
+                println!("Not found item with specified ID or Name for prediction");
+                return;
+            }
+
+            let all_ratings = manager.get_all_ratings();
+
+            for user in &user_targets {
+                for item in &item_targets {
+                    let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, KNNMetric::Pearson);
+                    let mut neighbors_ratings_for_item = Vec::new();
+                    let mut neighbors_weights = Vec::new();
+                    let mut total = 0.0;
+                    for n in &neighbors {
+                        let real_neighbor = manager.get_user_by_id(n.id)[0].clone();
+                        let neighbor_ratings = real_neighbor.ratings();
+                        if let Some(rating_item) = neighbor_ratings.get(&item.id) {
+                            println!("Neighbor {} with weight {} rated the item {} with: {}", real_neighbor.id, n.value, item.title, rating_item);
+                            neighbors_ratings_for_item.push(rating_item.clone());
+                            neighbors_weights.push(n.value);
+                            total += n.value;
+                        } else {
+                            println!("Neighbor {} didn't rated the item {}", real_neighbor.id, item.title);
+                        }
+                    }
+
+                    let mut predicted = 0.0;
+                    for i in 0..neighbors_weights.len() {
+                        predicted += neighbors_ratings_for_item[i] * (neighbors_weights[i]/total);
+                    }
+
+                    println!("{}", predicted);
+                }
+            }
+        }
+        Database::SmallMovieLens { url } => {
+            let manager = SmallMovielensDBManager::connect_to(&url);
+            let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            if target_id == None {
+                println!("You need to specify a user id");
+                return;
+            }
+
+            let mut user_targets = Vec::new();
+            if let Some(user_id) = target_id {
+                user_targets = manager.get_user_by_id(user_id.parse().expect("Failed to parse target id on predictions"));
+            }
+            if user_targets.is_empty() {
+                println!("Not found user with specified ID for prediction");
+                return;
+            }
+
+
+            if item_name == None && item_id == None {
+                println!("You need to specify an item name or an item id");
+                return;
+            }
+
+            let mut item_targets = Vec::new();
+            if let Some(item_name) = item_name {
+                item_targets = manager.get_item_by_name(&item_name);
+            }
+            if let Some(item_id) = item_id {
+                item_targets = manager.get_item_by_id(item_id.parse().expect("Failed to parse item id on predictions"));
+            }
+            if item_targets.is_empty() {
+                println!("Not found item with specified ID or Name for prediction");
+                return;
+            }
+
+            let all_ratings = manager.get_all_ratings();
+
+            for user in &user_targets {
+                for item in &item_targets {
+                    let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, KNNMetric::Pearson);
+                    let mut neighbors_ratings_for_item = Vec::new();
+                    let mut neighbors_weights = Vec::new();
+                    let mut total = 0.0;
+                    for n in &neighbors {
+                        let real_neighbor = manager.get_user_by_id(n.id)[0].clone();
+                        let neighbor_ratings = real_neighbor.ratings();
+                        if let Some(rating_item) = neighbor_ratings.get(&item.id) {
+                            println!("Neighbor {} with weight {} rated the item {} with: {}", real_neighbor.id, n.value, item.title, rating_item);
+                            neighbors_ratings_for_item.push(rating_item.clone());
+                            neighbors_weights.push(n.value);
+                            total += n.value;
+                        } else {
+                            println!("Neighbor {} didn't rated the item {}", real_neighbor.id, item.title);
+                        }
+                    }
+
+                    let mut predicted = 0.0;
+                    for i in 0..neighbors_weights.len() {
+                        predicted += neighbors_ratings_for_item[i] * (neighbors_weights[i]/total);
+                    }
+
+                    println!("{}", predicted);
+                }
+            }
         }
     }
-}*/
+}
 
 fn main() {
 
@@ -1177,4 +1343,8 @@ fn main() {
     get_jaccard_index_by_id(&small_movielens_database, String::from("125"), String::from("567"));
     println!();
 
+    prediction_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None, Some(String::from("Gladiator")), None);
+    prediction_with_k_neighbors(&books_database, 10, None, Some(String::from("26182")), None, Some(String::from("0060987529")));
+    prediction_with_k_neighbors(&small_movielens_database, 10, None, Some(String::from("567")), None, Some(String::from("1214")));
+    println!();
 }

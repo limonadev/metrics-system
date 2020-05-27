@@ -20,7 +20,7 @@ pub struct NewUser {
     pub age: Option<i32>
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct BookUser {
     pub id: i32,
     pub extra_data: HashMap<String, String>,
