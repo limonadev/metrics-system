@@ -1293,6 +1293,200 @@ fn prediction_with_k_neighbors(database:&Database, k:i32, target_name:Option<Str
     }
 }
 
+fn recommend_with_k_neighbors(database:&Database, k:i32, target_name:Option<String>, target_id:Option<String>, rec_number:i32) {
+    match database {
+        Database::SimpleMovies { url } => {
+            let manager = MovieDBManager::connect_to(&url);
+            let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            if target_name == None && target_id == None{
+                println!("You need to specify a user name or a user id");
+                return;
+            }
+
+            let mut user_targets = Vec::new();
+            if let Some(user_name) = target_name {
+                user_targets = manager.get_user_by_name(&user_name);
+            }
+            if let Some(user_id) = target_id {
+                user_targets = manager.get_user_by_id(user_id.parse().expect("Failed to parse target id to recommend"));
+            }
+            if user_targets.is_empty() {
+                println!("Not found user with specified ID or Name to recommend");
+                return;
+            }
+
+            let all_ratings = manager.get_all_ratings();
+
+            for user in &user_targets {
+                let mut recommendations = HashMap::new();
+
+                let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, KNNMetric::Pearson);
+                let mut total = 0.0;
+                for n in &neighbors {
+                    total += n.value;
+                }
+
+                for n in &neighbors {
+                    let real_neighbor = manager.get_user_by_id(n.id)[0].clone();
+                    let weight = n.value/total;
+                    for (item_id, rating) in real_neighbor.ratings() {
+                        if !user.ratings().contains_key(&item_id) {
+                            if recommendations.contains_key(&item_id) {
+                                recommendations.insert(item_id, recommendations[&item_id] + rating*weight);
+                            } else {
+                                recommendations.insert(item_id, rating*weight);
+                            }
+                        }
+                    }
+                }
+                let mut sorted_distances = Vec::new();
+                for (item_id, rating) in &recommendations {
+                    sorted_distances.push(PairDist::<i32>{id:item_id.clone(), value:rating.clone()});
+                }
+                sorted_distances.sort();
+                sorted_distances.reverse();
+                
+                let mut final_recommendations = Vec::new();
+                let mut i = 0;
+                for item in &sorted_distances {
+                    if i >= rec_number {
+                        break;
+                    }
+                    final_recommendations.push((manager.get_item_by_id(item.id)[0].clone(), item.value));
+                    i += 1;
+                }
+
+                println!("{:?}", final_recommendations);
+            }
+        }
+        Database::Books { url } => {
+            let manager = BookDBManager::connect_to(&url);
+            let engine = Engine::<i32,String> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            if target_id == None{
+                println!("You need to specify a user id");
+                return;
+            }
+
+            let mut user_targets = Vec::new();
+            if let Some(user_id) = target_id {
+                user_targets = manager.get_user_by_id(user_id.parse().expect("Failed to parse target id to recommend"));
+            }
+            if user_targets.is_empty() {
+                println!("Not found user with specified ID to recommend");
+                return;
+            }
+
+            let all_ratings = manager.get_all_ratings();
+
+            for user in &user_targets {
+                let mut recommendations = HashMap::new();
+
+                let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, KNNMetric::Pearson);
+                let mut total = 0.0;
+                for n in &neighbors {
+                    total += n.value;
+                }
+
+                for n in &neighbors {
+                    let real_neighbor = manager.get_user_by_id(n.id)[0].clone();
+                    let weight = n.value/total;
+                    for (item_id, rating) in &real_neighbor.ratings() {
+                        if !user.ratings().contains_key(&item_id.clone()) {
+                            if recommendations.contains_key(item_id) {
+                                recommendations.insert(item_id.clone(), recommendations[&item_id.clone()] + rating*weight);
+                            } else {
+                                recommendations.insert(item_id.clone(), rating*weight);
+                            }
+                        }
+                    }
+                }
+                let mut sorted_distances = Vec::new();
+                for (item_id, rating) in &recommendations {
+                    sorted_distances.push(PairDist::<String>{id:item_id.clone(), value:rating.clone()});
+                }
+                sorted_distances.sort();
+                sorted_distances.reverse();
+                
+                let mut final_recommendations = Vec::new();
+                let mut i = 0;
+                for item in &sorted_distances {
+                    if i >= rec_number {
+                        break;
+                    }
+                    final_recommendations.push((manager.get_item_by_id(item.id.clone())[0].clone(), item.value));
+                    i += 1;
+                }
+
+                println!("{:?}", final_recommendations);
+            }
+        }
+        Database::SmallMovieLens { url } => {
+            let manager = SmallMovielensDBManager::connect_to(&url);
+            let engine = Engine::<i32,i32> {phantom_U: PhantomData, phantom_I: PhantomData};
+
+            if target_id == None{
+                println!("You need to specify a user id");
+                return;
+            }
+
+            let mut user_targets = Vec::new();
+            if let Some(user_id) = target_id {
+                user_targets = manager.get_user_by_id(user_id.parse().expect("Failed to parse target id to recommend"));
+            }
+            if user_targets.is_empty() {
+                println!("Not found user with specified ID to recommend");
+                return;
+            }
+
+            let all_ratings = manager.get_all_ratings();
+
+            for user in &user_targets {
+                let mut recommendations = HashMap::new();
+
+                let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, KNNMetric::Pearson);
+                let mut total = 0.0;
+                for n in &neighbors {
+                    total += n.value;
+                }
+
+                for n in &neighbors {
+                    let real_neighbor = manager.get_user_by_id(n.id)[0].clone();
+                    let weight = n.value/total;
+                    for (item_id, rating) in real_neighbor.ratings() {
+                        if !user.ratings().contains_key(&item_id) {
+                            if recommendations.contains_key(&item_id) {
+                                recommendations.insert(item_id, recommendations[&item_id] + rating*weight);
+                            } else {
+                                recommendations.insert(item_id, rating*weight);
+                            }
+                        }
+                    }
+                }
+                let mut sorted_distances = Vec::new();
+                for (item_id, rating) in &recommendations {
+                    sorted_distances.push(PairDist::<i32>{id:item_id.clone(), value:rating.clone()});
+                }
+                sorted_distances.sort();
+                sorted_distances.reverse();
+                
+                let mut final_recommendations = Vec::new();
+                let mut i = 0;
+                for item in &sorted_distances {
+                    if i >= rec_number {
+                        break;
+                    }
+                    final_recommendations.push((manager.get_item_by_id(item.id)[0].clone(), item.value));
+                    i += 1;
+                }
+
+                println!("{:?}", final_recommendations);
+            }
+        }
+    }
+}
+
 fn main() {
 
     let simple_movies_database = Database::SimpleMovies{url: String::from("postgres://ademir:@localhost/simple_movies")};
@@ -1346,5 +1540,12 @@ fn main() {
     prediction_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None, Some(String::from("Gladiator")), None);
     prediction_with_k_neighbors(&books_database, 10, None, Some(String::from("26182")), None, Some(String::from("0060987529")));
     prediction_with_k_neighbors(&small_movielens_database, 10, None, Some(String::from("567")), None, Some(String::from("1214")));
+    println!();
+
+    recommend_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None,10);
+    println!();
+    recommend_with_k_neighbors(&books_database, 10, None, Some(String::from("26182")), 10);
+    println!();
+    recommend_with_k_neighbors(&small_movielens_database, 10, None, Some(String::from("567")), 10);
     println!();
 }

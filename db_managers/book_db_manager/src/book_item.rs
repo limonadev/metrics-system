@@ -23,11 +23,21 @@ pub struct NewBook {
     pub publisher: String
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct BookItem {
     pub id: String,
     pub title: String,
     pub extra_data: HashMap<String, String>
+}
+
+impl core::fmt::Debug for BookItem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BookItem")
+            .field("id", &self.id)
+            .field("title", &self.title)
+            .finish()
+    }
+    
 }
 
 impl Item for BookItem {

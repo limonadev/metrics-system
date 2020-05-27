@@ -16,7 +16,7 @@ pub struct NewMovie {
     pub title: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MovieItem {
     pub id: i32,
     pub name: String

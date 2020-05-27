@@ -19,7 +19,7 @@ pub struct NewMovie {
     pub genres: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct SMovieLensItem {
     pub id: i32,
     pub title: String,
