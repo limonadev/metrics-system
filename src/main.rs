@@ -135,7 +135,6 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
 
         for (u, u_ratings) in &ratings_without_user {
             let dist = Self::pearson_correlation_between(self, target_ratings, u_ratings);
-            println!("{}",dist);
             let pair_dist = PairDist::<U> {id: u.clone(), value: dist};
             if min_heap.len() < k as usize {
                 min_heap.push(Reverse(pair_dist));
@@ -1124,31 +1123,48 @@ fn main() {
     let books_database = Database::Books{url: String::from("postgres://ademir:@localhost/books")};
     let small_movielens_database = Database::SmallMovieLens{url: String::from("postgres://ademir:@localhost/small_movielens")};
 
+    println!("\n\n");
+
     get_manhattan_distance_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_manhattan_distance_by_id(&simple_movies_database, String::from("1"), String::from("2"));
-
-    get_minkowski_distance_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"), 1);
-    get_minkowski_distance_by_id(&simple_movies_database, String::from("1"), String::from("2"), 1);
+    get_manhattan_distance_by_id(&books_database, String::from("26182"), String::from("37400"));
+    get_manhattan_distance_by_id(&small_movielens_database, String::from("125"), String::from("567"));
+    println!();
 
     get_euclidean_distance_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_euclidean_distance_by_id(&simple_movies_database, String::from("1"), String::from("2"));
+    get_euclidean_distance_by_id(&books_database, String::from("26182"), String::from("37400"));
+    get_euclidean_distance_by_id(&small_movielens_database, String::from("125"), String::from("567"));
+    println!();
 
-    get_minkowski_distance_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"), 2);
-    get_minkowski_distance_by_id(&simple_movies_database, String::from("1"), String::from("2"), 2);
-    //get_minkowski_distance_by_id(&books_database, String::from("26182"), String::from("269352"), 2);
+    get_minkowski_distance_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"), 3);
+    get_minkowski_distance_by_id(&simple_movies_database, String::from("1"), String::from("2"), 3);
+    get_minkowski_distance_by_id(&books_database, String::from("26182"), String::from("37400"), 3);
+    get_minkowski_distance_by_id(&small_movielens_database, String::from("125"), String::from("567"), 3);
+    println!();
 
     get_pearson_correlation_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_pearson_correlation_by_id(&simple_movies_database, String::from("1"), String::from("2"));
+    get_pearson_correlation_by_id(&books_database, String::from("26182"), String::from("37400"));
+    get_pearson_correlation_by_id(&small_movielens_database, String::from("125"), String::from("567"));
+    println!();
 
     get_cosine_similarity_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_cosine_similarity_by_id(&simple_movies_database, String::from("1"), String::from("2"));
+    get_cosine_similarity_by_id(&books_database, String::from("26182"), String::from("37400"));
+    get_cosine_similarity_by_id(&small_movielens_database, String::from("125"), String::from("567"));
+    println!();
 
     get_jaccard_distance_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_jaccard_distance_by_id(&simple_movies_database, String::from("1"), String::from("2"));
+    get_jaccard_distance_by_id(&books_database, String::from("26182"), String::from("37400"));
+    get_jaccard_distance_by_id(&small_movielens_database, String::from("125"), String::from("567"));
+    println!();
 
     get_jaccard_index_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_jaccard_index_by_id(&simple_movies_database, String::from("1"), String::from("2"));
+    get_jaccard_index_by_id(&books_database, String::from("26182"), String::from("37400"));
+    get_jaccard_index_by_id(&small_movielens_database, String::from("125"), String::from("567"));
+    println!();
 
-    get_k_neighbors_by_name(&simple_movies_database, 4, String::from("Patrick C"), KNNMetric::Pearson);
-    get_k_neighbors_by_id(&simple_movies_database, 4, String::from("1"), KNNMetric::Manhattan);
 }
