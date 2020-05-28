@@ -1,3 +1,5 @@
+use::std::fmt::Debug;
+
 use std::collections::HashMap;
 use std::collections::BinaryHeap;
 use std::hash::Hash;
@@ -9,6 +11,8 @@ use simple_movie_db_manager::{movie_db_manager::MovieDBManager, movie_user::Movi
 use book_db_manager::{book_db_manager::BookDBManager, book_user::BookUser, book_item::BookItem};
 use small_movielens_db_manager::{small_movielens_db_manager::SmallMovielensDBManager, movie_user::SMovieLensUser, movie_item::SMovieLensItem};
 
+const INVALID:f64 = -f64::INFINITY;
+
 #[derive(Clone,PartialEq)]
 enum KNNMetric {
     Manhattan,
@@ -18,6 +22,7 @@ enum KNNMetric {
     Cosine
 }
 
+#[derive(Debug)]
 struct PairDist<U> {
     id:U,
     value:f64
@@ -48,7 +53,7 @@ pub struct Engine<U, I> {
     phantom_I: PhantomData<I>
 }
 
-impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
+impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
 
     fn manhattan_distance_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
         Self::minkowski_distance_between(self, first, second, 1)
@@ -60,13 +65,20 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
 
     fn minkowski_distance_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>, grade: i32) -> f64 {
         let mut distance = 0.0;
+        let mut has_intersection = false;
 
         for (item_id, first_ranking) in first {
             if let Some(second_ranking) = second.get(item_id) {
                 let diff = (first_ranking-second_ranking).abs().powi(grade);
                 distance += diff;
+                has_intersection = true;
             }
         }
+
+        if !has_intersection {
+            return INVALID;
+        }
+
         distance.powf(1.0/(grade as f64))
     }
 
@@ -94,7 +106,7 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
         let denominator = first_root*second_root;
 
         if denominator == 0.0 || n == 0.0{
-            return 0.0;
+            return INVALID;
         }
 
         numerator/denominator
@@ -117,7 +129,7 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
         second_len = second_len.sqrt();
 
         if first_len*second_len == 0.0 {
-            return 0.0;
+            return INVALID;
         }
 
         pointwise_sum/(first_len*second_len)
@@ -157,6 +169,11 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
                     Self::cosine_similarity_between(self, target_ratings, u_ratings)
                 }
             };
+
+            if dist == INVALID {
+                continue;
+            } 
+
             let pair_dist = PairDist::<U> {id: u.clone(), value: dist};
             if min_heap.len() < k as usize {
                 min_heap.push(Reverse(pair_dist));
@@ -189,6 +206,8 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
         let mut ratings_without_user = ratings.clone();
         ratings_without_user.remove(&target);
 
+        let mut kappa = Vec::new();
+
         for (u, u_ratings) in &ratings_without_user {
             let dist = match metric {
                 KNNMetric::Manhattan => {Self::manhattan_distance_between(self, target_ratings, u_ratings)}
@@ -197,6 +216,12 @@ impl<U:Hash+Eq+Clone,I:Hash+Eq+Clone> Engine<U,I> {
                 KNNMetric::Pearson => {0.0},
                 KNNMetric::Cosine => {0.0}
             };
+
+            if dist == INVALID {
+                continue;
+            }
+            kappa.push(dist);
+
             let pair_dist = PairDist::<U> {id: u.clone(), value: dist};
             if max_heap.len() < k as usize {
                 max_heap.push(pair_dist);
@@ -1099,7 +1124,7 @@ fn get_k_neighbors_by_id(database:&Database, k:i32, target:String, metric:KNNMet
     }
 }
 
-fn prediction_with_k_neighbors(database:&Database, k:i32, target_name:Option<String>, target_id:Option<String>, item_name:Option<String>, item_id:Option<String>) {
+fn prediction_with_k_neighbors(database:&Database, k:i32, target_name:Option<String>, target_id:Option<String>, item_name:Option<String>, item_id:Option<String>, metric:KNNMetric) {
     match database {
         Database::SimpleMovies { url } => {
             let manager = MovieDBManager::connect_to(&url);
@@ -1143,30 +1168,35 @@ fn prediction_with_k_neighbors(database:&Database, k:i32, target_name:Option<Str
             let all_ratings = manager.get_all_ratings();
 
             for user in &user_targets {
+                let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, metric.clone());
+                let mut neighbors_with_ratings = Vec::new();
+                let mut pearson_values = Vec::new();
+
+                for i in 0..neighbors.len() {
+                    let neighbor_user = &manager.get_user_by_id(neighbors[i].id)[0];
+                    neighbors_with_ratings.push(neighbor_user.clone());
+                    pearson_values.push(engine.pearson_correlation_between(&neighbor_user.ratings(), &user.ratings()));
+                }
+
                 for item in &item_targets {
-                    let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, KNNMetric::Pearson);
-                    let mut neighbors_ratings_for_item = Vec::new();
-                    let mut neighbors_weights = Vec::new();
-                    let mut total = 0.0;
-                    for n in &neighbors {
-                        let real_neighbor = manager.get_user_by_id(n.id)[0].clone();
-                        let neighbor_ratings = real_neighbor.ratings();
-                        if let Some(rating_item) = neighbor_ratings.get(&item.id) {
-                            println!("Neighbor {} with weight {} rated the item {} with: {}", real_neighbor.name, n.value, item.name, rating_item);
-                            neighbors_ratings_for_item.push(rating_item.clone());
-                            neighbors_weights.push(n.value);
-                            total += n.value;
+                    let mut predicted_rating = 0.0;
+                    let mut pearson_total = 0.0;
+                    for i in 0..neighbors.len() {
+                        if pearson_values[i] == INVALID {
+                            continue;
+                        }
+                        if let Some(rating_item) = neighbors_with_ratings[i].ratings().get(&item.id) {
+                            predicted_rating += rating_item*pearson_values[i];
+                            pearson_total += pearson_values[i];
+                            println!("Neighbor {} with weight {} rated the item {} with: {}", neighbors_with_ratings[i].name, pearson_values[i], item.name, rating_item);
                         } else {
-                            println!("Neighbor {} didn't rated the item {}", real_neighbor.name, item.name);
+                            println!("Neighbor {} didn't rated the item", neighbors_with_ratings[i].name);
                         }
                     }
 
-                    let mut predicted = 0.0;
-                    for i in 0..neighbors_weights.len() {
-                        predicted += neighbors_ratings_for_item[i] * (neighbors_weights[i]/total);
-                    }
+                    predicted_rating = predicted_rating/pearson_total;
 
-                    println!("{}", predicted);
+                    println!("The value predicted is {}", predicted_rating);
                 }
             }
         }
@@ -1209,30 +1239,35 @@ fn prediction_with_k_neighbors(database:&Database, k:i32, target_name:Option<Str
             let all_ratings = manager.get_all_ratings();
 
             for user in &user_targets {
+                let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, metric.clone());
+                let mut neighbors_with_ratings = Vec::new();
+                let mut pearson_values = Vec::new();
+
+                for i in 0..neighbors.len() {
+                    let neighbor_user = &manager.get_user_by_id(neighbors[i].id)[0];
+                    neighbors_with_ratings.push(neighbor_user.clone());
+                    pearson_values.push(engine.pearson_correlation_between(&neighbor_user.ratings(), &user.ratings()));
+                }
+
                 for item in &item_targets {
-                    let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, KNNMetric::Pearson);
-                    let mut neighbors_ratings_for_item = Vec::new();
-                    let mut neighbors_weights = Vec::new();
-                    let mut total = 0.0;
-                    for n in &neighbors {
-                        let real_neighbor = manager.get_user_by_id(n.id)[0].clone();
-                        let neighbor_ratings = real_neighbor.ratings();
-                        if let Some(rating_item) = neighbor_ratings.get(&item.id) {
-                            println!("Neighbor {} with weight {} rated the item {} with: {}", real_neighbor.id, n.value, item.title, rating_item);
-                            neighbors_ratings_for_item.push(rating_item.clone());
-                            neighbors_weights.push(n.value);
-                            total += n.value;
+                    let mut predicted_rating = 0.0;
+                    let mut pearson_total = 0.0;
+                    for i in 0..neighbors.len() {
+                        if pearson_values[i] == INVALID {
+                            continue;
+                        }
+                        if let Some(rating_item) = neighbors_with_ratings[i].ratings().get(&item.id) {
+                            predicted_rating += rating_item*pearson_values[i];
+                            pearson_total += pearson_values[i];
+                            println!("Neighbor {} with weight {} rated the item {} with: {}", neighbors_with_ratings[i].id, pearson_values[i], item.title, rating_item);
                         } else {
-                            println!("Neighbor {} didn't rated the item {}", real_neighbor.id, item.title);
+                            println!("Neighbor {} didn't rated the item", neighbors_with_ratings[i].id);
                         }
                     }
 
-                    let mut predicted = 0.0;
-                    for i in 0..neighbors_weights.len() {
-                        predicted += neighbors_ratings_for_item[i] * (neighbors_weights[i]/total);
-                    }
+                    predicted_rating = predicted_rating/pearson_total;
 
-                    println!("{}", predicted);
+                    println!("The value predicted is {}", predicted_rating);
                 }
             }
         }
@@ -1275,30 +1310,35 @@ fn prediction_with_k_neighbors(database:&Database, k:i32, target_name:Option<Str
             let all_ratings = manager.get_all_ratings();
 
             for user in &user_targets {
+                let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, metric.clone());
+                let mut neighbors_with_ratings = Vec::new();
+                let mut pearson_values = Vec::new();
+
+                for i in 0..neighbors.len() {
+                    let neighbor_user = &manager.get_user_by_id(neighbors[i].id)[0];
+                    neighbors_with_ratings.push(neighbor_user.clone());
+                    pearson_values.push(engine.pearson_correlation_between(&neighbor_user.ratings(), &user.ratings()));
+                }
+
                 for item in &item_targets {
-                    let neighbors = engine.k_nearest_neighbors(k, user.id, &all_ratings, KNNMetric::Pearson);
-                    let mut neighbors_ratings_for_item = Vec::new();
-                    let mut neighbors_weights = Vec::new();
-                    let mut total = 0.0;
-                    for n in &neighbors {
-                        let real_neighbor = manager.get_user_by_id(n.id)[0].clone();
-                        let neighbor_ratings = real_neighbor.ratings();
-                        if let Some(rating_item) = neighbor_ratings.get(&item.id) {
-                            println!("Neighbor {} with weight {} rated the item {} with: {}", real_neighbor.id, n.value, item.title, rating_item);
-                            neighbors_ratings_for_item.push(rating_item.clone());
-                            neighbors_weights.push(n.value);
-                            total += n.value;
+                    let mut predicted_rating = 0.0;
+                    let mut pearson_total = 0.0;
+                    for i in 0..neighbors.len() {
+                        if pearson_values[i] == INVALID {
+                            continue;
+                        }
+                        if let Some(rating_item) = neighbors_with_ratings[i].ratings().get(&item.id) {
+                            predicted_rating += rating_item*pearson_values[i];
+                            pearson_total += pearson_values[i];
+                            println!("Neighbor {} with weight {} rated the item {} with: {}", neighbors_with_ratings[i].id, pearson_values[i], item.title, rating_item);
                         } else {
-                            println!("Neighbor {} didn't rated the item {}", real_neighbor.id, item.title);
+                            println!("Neighbor {} didn't rated the item", neighbors_with_ratings[i].id);
                         }
                     }
 
-                    let mut predicted = 0.0;
-                    for i in 0..neighbors_weights.len() {
-                        predicted += neighbors_ratings_for_item[i] * (neighbors_weights[i]/total);
-                    }
+                    predicted_rating = predicted_rating/pearson_total;
 
-                    println!("{}", predicted);
+                    println!("The value predicted is {}", predicted_rating);
                 }
             }
         }
@@ -1507,7 +1547,7 @@ fn main() {
 
     println!("\n\n");
 
-    get_manhattan_distance_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
+    /*get_manhattan_distance_by_name(&simple_movies_database, String::from("Patrick C"), String::from("Heather"));
     get_manhattan_distance_by_id(&simple_movies_database, String::from("1"), String::from("2"));
     get_manhattan_distance_by_id(&books_database, String::from("26182"), String::from("37400"));
     get_manhattan_distance_by_id(&small_movielens_database, String::from("125"), String::from("567"));
@@ -1565,17 +1605,39 @@ fn main() {
     get_k_neighbors_by_id(&small_movielens_database, 3, String::from("567"), KNNMetric::Manhattan);
     get_k_neighbors_by_id(&small_movielens_database, 3, String::from("567"), KNNMetric::Pearson);
     get_k_neighbors_by_id(&small_movielens_database, 3, String::from("567"), KNNMetric::Cosine);
+    println!();*/
+
+    //prediction_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None, Some(String::from("Gladiator")), None, KNNMetric::Euclidean);
+    //prediction_with_k_neighbors(&books_database, 10, None, Some(String::from("26182")), None, Some(String::from("0060987529")), KNNMetric::Euclidean);
+    //prediction_with_k_neighbors(&small_movielens_database, 10, None, Some(String::from("567")), None, Some(String::from("1214")), KNNMetric::Euclidean);
     println!();
 
-    prediction_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None, Some(String::from("Gladiator")), None);
-    prediction_with_k_neighbors(&books_database, 10, None, Some(String::from("26182")), None, Some(String::from("0060987529")));
-    prediction_with_k_neighbors(&small_movielens_database, 10, None, Some(String::from("567")), None, Some(String::from("1214")));
-    println!();
-
-    recommend_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None,10);
+    /*recommend_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None,10);
     println!();
     recommend_with_k_neighbors(&books_database, 10, None, Some(String::from("26182")), 10);
     println!();
     recommend_with_k_neighbors(&small_movielens_database, 10, None, Some(String::from("567")), 10);
-    println!();
+    println!();*/
+
+    /*get_k_neighbors_by_id(&small_movielens_database, 5, String::from("567"), KNNMetric::Manhattan);
+    get_k_neighbors_by_id(&small_movielens_database, 5, String::from("567"), KNNMetric::Euclidean);
+    get_k_neighbors_by_id(&small_movielens_database, 5, String::from("567"), KNNMetric::Cosine);
+    get_k_neighbors_by_id(&small_movielens_database, 5, String::from("567"), KNNMetric::Pearson);
+    println!("\n\n");
+    get_k_neighbors_by_id(&books_database, 5, String::from("26182"), KNNMetric::Manhattan);
+    get_k_neighbors_by_id(&books_database, 5, String::from("26182"), KNNMetric::Euclidean);
+    get_k_neighbors_by_id(&books_database, 5, String::from("26182"), KNNMetric::Cosine);
+    get_k_neighbors_by_id(&books_database, 5, String::from("26182"), KNNMetric::Pearson);
+    println!("\n\n");
+    prediction_with_k_neighbors(&books_database, 5, None, Some(String::from("26182")), None, Some(String::from("0060987529")), KNNMetric::Pearson);
+    prediction_with_k_neighbors(&small_movielens_database, 5, None, Some(String::from("567")), None, Some(String::from("1214")), KNNMetric::Pearson);
+    println!("\n\n");
+    prediction_with_k_neighbors(&books_database, 20, None, Some(String::from("26182")), None, Some(String::from("0060987529")), KNNMetric::Manhattan);
+    prediction_with_k_neighbors(&small_movielens_database, 20, None, Some(String::from("567")), None, Some(String::from("1214")), KNNMetric::Manhattan);*/
+
+    //get_cosine_similarity_by_id(&books_database, String::from("28182"), String::from("240144"));
+
+    prediction_with_k_neighbors(&small_movielens_database, 20, None, Some(String::from("567")), None, Some(String::from("1214")), KNNMetric::Manhattan);
+
+    //prediction_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None, Some(String::from("Gladiator")), None, KNNMetric::Manhattan);
 }
