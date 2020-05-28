@@ -19,7 +19,9 @@ enum KNNMetric {
     Euclidean,
     Minkowski(i32),
     Pearson,
-    Cosine
+    Cosine,
+    JaccardDistance,
+    JaccardIndex
 }
 
 #[derive(Debug)]
@@ -143,14 +145,21 @@ impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
             }
         }
         let union = (first.keys().len() - intersection) + (second.keys().len() - intersection) + intersection;
+        if union == 0  {
+            return INVALID;
+        }
         intersection as f64/union as f64
     }
 
     fn jaccard_distance_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
-        1.0 - Self::jaccard_index_between(self, first, second)
+        let dist  = Self::jaccard_index_between(self, first, second);
+        if dist == INVALID {
+            return INVALID;
+        }
+        1.0 - dist
     }
 
-    fn pearson_cosine_nearest_neighbors(&self, k:i32, target:U, ratings:&HashMap<U,HashMap<I,f64>>, metric:KNNMetric) -> Vec<PairDist<U>> {
+    fn pearson_cosine_jac_in_nearest_neighbors(&self, k:i32, target:U, ratings:&HashMap<U,HashMap<I,f64>>, metric:KNNMetric) -> Vec<PairDist<U>> {
         let mut min_heap = BinaryHeap::new();
 
         let target_ratings = ratings.get(&target).unwrap();
@@ -159,20 +168,24 @@ impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
 
         for (u, u_ratings) in &ratings_without_user {
             let dist = match metric {
-                KNNMetric::Manhattan => {0.0}
-                KNNMetric::Euclidean => {0.0}
-                KNNMetric::Minkowski(_) => {0.0}
+                KNNMetric::Manhattan => {INVALID}
+                KNNMetric::Euclidean => {INVALID}
+                KNNMetric::Minkowski(_) => {INVALID}
                 KNNMetric::Pearson => {
                     Self::pearson_correlation_between(self, target_ratings, u_ratings)
                 }
                 KNNMetric::Cosine => {
                     Self::cosine_similarity_between(self, target_ratings, u_ratings)
                 }
+                KNNMetric::JaccardDistance => {INVALID}
+                KNNMetric::JaccardIndex => {
+                    Self::jaccard_index_between(self, target_ratings, u_ratings)
+                }
             };
 
             if dist == INVALID {
                 continue;
-            } 
+            }
 
             let pair_dist = PairDist::<U> {id: u.clone(), value: dist};
             if min_heap.len() < k as usize {
@@ -196,8 +209,8 @@ impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
     }
 
     fn k_nearest_neighbors(&self, k:i32, target:U, ratings:&HashMap<U,HashMap<I,f64>>, metric: KNNMetric) -> Vec<PairDist<U>>{
-        if KNNMetric::Pearson == metric || KNNMetric::Cosine == metric {
-            return Self::pearson_cosine_nearest_neighbors(self, k, target, ratings, metric);
+        if KNNMetric::Pearson == metric || KNNMetric::Cosine == metric || KNNMetric::JaccardIndex == metric{
+            return Self::pearson_cosine_jac_in_nearest_neighbors(self, k, target, ratings, metric);
         }
 
         let mut max_heap:BinaryHeap<PairDist<U>> = BinaryHeap::new();
@@ -206,21 +219,20 @@ impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
         let mut ratings_without_user = ratings.clone();
         ratings_without_user.remove(&target);
 
-        let mut kappa = Vec::new();
-
         for (u, u_ratings) in &ratings_without_user {
             let dist = match metric {
                 KNNMetric::Manhattan => {Self::manhattan_distance_between(self, target_ratings, u_ratings)}
                 KNNMetric::Euclidean => {Self::euclidean_distance_between(self, target_ratings, u_ratings)}
                 KNNMetric::Minkowski(grade) => {Self::minkowski_distance_between(self, target_ratings, u_ratings, grade)}
-                KNNMetric::Pearson => {0.0},
-                KNNMetric::Cosine => {0.0}
+                KNNMetric::Pearson => {INVALID},
+                KNNMetric::Cosine => {INVALID}
+                KNNMetric::JaccardDistance => {Self::jaccard_distance_between(self, target_ratings, u_ratings)}
+                KNNMetric::JaccardIndex => {INVALID}
             };
 
             if dist == INVALID {
                 continue;
             }
-            kappa.push(dist);
 
             let pair_dist = PairDist::<U> {id: u.clone(), value: dist};
             if max_heap.len() < k as usize {
@@ -1637,7 +1649,7 @@ fn main() {
 
     //get_cosine_similarity_by_id(&books_database, String::from("28182"), String::from("240144"));
 
-    prediction_with_k_neighbors(&small_movielens_database, 20, None, Some(String::from("567")), None, Some(String::from("1214")), KNNMetric::Manhattan);
+    prediction_with_k_neighbors(&small_movielens_database, 100, None, Some(String::from("567")), None, Some(String::from("1214")), KNNMetric::Manhattan);
 
     //prediction_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None, Some(String::from("Gladiator")), None, KNNMetric::Manhattan);
 }
