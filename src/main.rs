@@ -11,8 +11,6 @@ use simple_movie_db_manager::{movie_db_manager::MovieDBManager, movie_user::Movi
 use book_db_manager::{book_db_manager::BookDBManager, book_user::BookUser, book_item::BookItem};
 use small_movielens_db_manager::{small_movielens_db_manager::SmallMovielensDBManager, movie_user::SMovieLensUser, movie_item::SMovieLensItem};
 
-const INVALID:f64 = -f64::INFINITY;
-
 #[derive(Clone,PartialEq)]
 enum KNNMetric {
     Manhattan,
@@ -67,18 +65,12 @@ impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
 
     fn minkowski_distance_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>, grade: i32) -> f64 {
         let mut distance = 0.0;
-        let mut has_intersection = false;
 
         for (item_id, first_ranking) in first {
             if let Some(second_ranking) = second.get(item_id) {
                 let diff = (first_ranking-second_ranking).abs().powi(grade);
                 distance += diff;
-                has_intersection = true;
             }
-        }
-
-        if !has_intersection {
-            return INVALID;
         }
 
         distance.powf(1.0/(grade as f64))
@@ -107,10 +99,6 @@ impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
         let second_root = (sum_y_squared - (sum_y.powi(2)/n)).sqrt();
         let denominator = first_root*second_root;
 
-        if denominator == 0.0 || n == 0.0{
-            return INVALID;
-        }
-
         numerator/denominator
     }
 
@@ -130,10 +118,6 @@ impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
         first_len = first_len.sqrt();
         second_len = second_len.sqrt();
 
-        if first_len*second_len == 0.0 {
-            return INVALID;
-        }
-
         pointwise_sum/(first_len*second_len)
     }
 
@@ -145,17 +129,11 @@ impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
             }
         }
         let union = (first.keys().len() - intersection) + (second.keys().len() - intersection) + intersection;
-        if union == 0  {
-            return INVALID;
-        }
         intersection as f64/union as f64
     }
 
     fn jaccard_distance_between(&self, first: &HashMap<I, f64>, second: &HashMap<I, f64>) -> f64 {
         let dist  = Self::jaccard_index_between(self, first, second);
-        if dist == INVALID {
-            return INVALID;
-        }
         1.0 - dist
     }
 
@@ -168,22 +146,22 @@ impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
 
         for (u, u_ratings) in &ratings_without_user {
             let dist = match metric {
-                KNNMetric::Manhattan => {INVALID}
-                KNNMetric::Euclidean => {INVALID}
-                KNNMetric::Minkowski(_) => {INVALID}
+                KNNMetric::Manhattan => {f64::NAN}
+                KNNMetric::Euclidean => {f64::NAN}
+                KNNMetric::Minkowski(_) => {f64::NAN}
                 KNNMetric::Pearson => {
                     Self::pearson_correlation_between(self, target_ratings, u_ratings)
                 }
                 KNNMetric::Cosine => {
                     Self::cosine_similarity_between(self, target_ratings, u_ratings)
                 }
-                KNNMetric::JaccardDistance => {INVALID}
+                KNNMetric::JaccardDistance => {f64::NAN}
                 KNNMetric::JaccardIndex => {
                     Self::jaccard_index_between(self, target_ratings, u_ratings)
                 }
             };
 
-            if dist == INVALID {
+            if dist == f64::NAN || dist == f64::INFINITY || dist == -f64::INFINITY || dist.is_nan() {
                 continue;
             }
 
@@ -224,13 +202,13 @@ impl<U:Hash+Eq+Clone+Debug,I:Hash+Eq+Clone> Engine<U,I> {
                 KNNMetric::Manhattan => {Self::manhattan_distance_between(self, target_ratings, u_ratings)}
                 KNNMetric::Euclidean => {Self::euclidean_distance_between(self, target_ratings, u_ratings)}
                 KNNMetric::Minkowski(grade) => {Self::minkowski_distance_between(self, target_ratings, u_ratings, grade)}
-                KNNMetric::Pearson => {INVALID},
-                KNNMetric::Cosine => {INVALID}
+                KNNMetric::Pearson => {f64::NAN},
+                KNNMetric::Cosine => {f64::NAN}
                 KNNMetric::JaccardDistance => {Self::jaccard_distance_between(self, target_ratings, u_ratings)}
-                KNNMetric::JaccardIndex => {INVALID}
+                KNNMetric::JaccardIndex => {f64::NAN}
             };
 
-            if dist == INVALID {
+            if dist == f64::NAN || dist == f64::INFINITY || dist == -f64::INFINITY || dist.is_nan() {
                 continue;
             }
 
@@ -1194,7 +1172,7 @@ fn prediction_with_k_neighbors(database:&Database, k:i32, target_name:Option<Str
                     let mut predicted_rating = 0.0;
                     let mut pearson_total = 0.0;
                     for i in 0..neighbors.len() {
-                        if pearson_values[i] == INVALID {
+                        if pearson_values[i] == f64::NAN || pearson_values[i] == f64::INFINITY || pearson_values[i] == -f64::INFINITY || pearson_values[i].is_nan() {
                             continue;
                         }
                         if let Some(rating_item) = neighbors_with_ratings[i].ratings().get(&item.id) {
@@ -1265,7 +1243,7 @@ fn prediction_with_k_neighbors(database:&Database, k:i32, target_name:Option<Str
                     let mut predicted_rating = 0.0;
                     let mut pearson_total = 0.0;
                     for i in 0..neighbors.len() {
-                        if pearson_values[i] == INVALID {
+                        if pearson_values[i] == f64::NAN || pearson_values[i] == f64::INFINITY || pearson_values[i] == -f64::INFINITY || pearson_values[i].is_nan() {
                             continue;
                         }
                         if let Some(rating_item) = neighbors_with_ratings[i].ratings().get(&item.id) {
@@ -1336,7 +1314,7 @@ fn prediction_with_k_neighbors(database:&Database, k:i32, target_name:Option<Str
                     let mut predicted_rating = 0.0;
                     let mut pearson_total = 0.0;
                     for i in 0..neighbors.len() {
-                        if pearson_values[i] == INVALID {
+                        if pearson_values[i] == f64::NAN || pearson_values[i] == f64::INFINITY || pearson_values[i] == -f64::INFINITY || pearson_values[i].is_nan() {
                             continue;
                         }
                         if let Some(rating_item) = neighbors_with_ratings[i].ratings().get(&item.id) {
@@ -1649,7 +1627,34 @@ fn main() {
 
     //get_cosine_similarity_by_id(&books_database, String::from("28182"), String::from("240144"));
 
-    prediction_with_k_neighbors(&small_movielens_database, 100, None, Some(String::from("567")), None, Some(String::from("1214")), KNNMetric::Manhattan);
+    //prediction_with_k_neighbors(&books_database, 100, None, Some(String::from("26182")), None, Some(String::from("0060987529")), KNNMetric::Pearson);
+    //prediction_with_k_neighbors(&small_movielens_database, 100, None, Some(String::from("567")), None, Some(String::from("1214")), KNNMetric::Minkowski(3));
+
+    //prediction_with_k_neighbors(&small_movielens_database, 100, None, Some(String::from("567")), None, Some(String::from("1214")), KNNMetric::Manhattan);
 
     //prediction_with_k_neighbors(&simple_movies_database, 10, Some(String::from("Patrick C")), None, Some(String::from("Gladiator")), None, KNNMetric::Manhattan);
+
+
+    //get_jaccard_distance_by_name(&simple_movies_database, String::from("Stephen"), String::from("Amy"));
+    //get_k_neighbors_by_name(&simple_movies_database, 3, String::from("aaron"), KNNMetric::Euclidean);
+    //get_k_neighbors_by_name(&simple_movies_database, 4, String::from("Zak"), KNNMetric::Cosine);
+    //get_k_neighbors_by_name(&simple_movies_database, 5, String::from("Katherine"), KNNMetric::Pearson);
+    //get_k_neighbors_by_name(&simple_movies_database, 3, String::from("Valerie"), KNNMetric::Manhattan);
+    //prediction_with_k_neighbors(&simple_movies_database, 3, Some(String::from("Patrick C")), None, Some(String::from("Scarface")), None, KNNMetric::Cosine);
+
+    //get_cosine_similarity_by_id(&books_database, String::from("278833"), String::from("278858"));
+    //get_jaccard_distance_by_id(&books_database, String::from("278804"), String::from("211"));
+    
+    //    get_k_neighbors_by_id(&books_database, 5, String::from("2176"), KNNMetric::Euclidean);
+    
+    //    get_k_neighbors_by_id(&books_database, 3, String::from("272241"), KNNMetric::Pearson);
+
+    //get_k_neighbors_by_id(&small_movielens_database, 3, String::from("35"), KNNMetric::Cosine);
+
+    prediction_with_k_neighbors(&small_movielens_database, 200, None, Some(String::from("60")), Some(String::from("Spider-Man (2002)")), None, KNNMetric::Euclidean);
+    
 }
+
+/*
+[MovieLens] Cuál sera el puntaje proyectado de la película Black Mirror. Hacer la recomendación para el usuario 100, usando los 3 vecinos, distancia Euclidiana
+*/
