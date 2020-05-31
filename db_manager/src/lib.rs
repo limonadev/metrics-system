@@ -9,6 +9,9 @@ pub trait DBManager<U: User<I>, I: Item> {
     fn get_item_by_id(&self, uid: I::ID) -> Vec<I>;
     fn get_all_users(&self) -> Vec<U>;
     fn get_all_ratings(&self) -> HashMap<U::ID, HashMap<I::ID, f64>>;
+    fn get_users_chunk(&self, offset: i64, limit: i64) -> Vec<U::ID>;
+    fn get_user_ratings(&self, uid: U::ID) -> HashMap<I::ID, f64>;
+    fn get_users_with_ratings_chunk(&self, offset: i64, limit: i64) -> HashMap<U::ID, HashMap<I::ID, f64>>;
 }
 
 pub trait User<I: Item> {

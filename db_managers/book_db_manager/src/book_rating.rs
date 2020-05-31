@@ -1,6 +1,11 @@
 use crate::schema::*;
+use crate::book_user::QueryableUser;
 
-#[derive(diesel::Queryable)]
+use crate::schema::{users, ratings};
+
+#[derive(Identifiable, Queryable, Associations, PartialEq, Debug)]
+#[belongs_to(QueryableUser, foreign_key="user_id")]
+#[table_name = "ratings"]
 pub struct QueryableRating {
     pub id: i32,
     pub user_id: i32,

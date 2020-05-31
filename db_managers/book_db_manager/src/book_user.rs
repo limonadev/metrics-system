@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
 use crate::schema::*;
+use crate::schema::{users};
 
 use db_manager::User;
 use crate::book_item::BookItem;
 
-#[derive(diesel::Queryable)]
+#[derive(Identifiable, Queryable, PartialEq, Debug)]
+#[table_name = "users"]
 pub struct QueryableUser {
     pub id: i32,
     pub city: String,

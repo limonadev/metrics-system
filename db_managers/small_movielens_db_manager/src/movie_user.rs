@@ -5,7 +5,8 @@ use crate::schema::*;
 use db_manager::User;
 use crate::movie_item::SMovieLensItem;
 
-#[derive(diesel::Queryable)]
+#[derive(Identifiable, Queryable)]
+#[table_name = "users"]
 pub struct QueryableUser {
     pub id: i32,
 }

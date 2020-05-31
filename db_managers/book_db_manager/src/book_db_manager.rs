@@ -127,4 +127,44 @@ impl DBManager<BookUser, BookItem> for BookDBManager {
         }
         result
     }
+    fn get_users_chunk(&self, offset: i64, limit: i64) -> Vec<i32> {
+        let user_chunk = users::table
+            .select(users::id)
+            .limit(limit)
+            .offset(offset)
+            .load::<i32>(&self.connector)
+            .expect("Failed to fetch chunk of users");
+        
+        user_chunk
+    }
+    fn get_user_ratings(&self, uid: i32) -> HashMap<String, f64> {
+        let user:QueryableUser = users::table.find(uid).get_result(&self.connector).unwrap();
+        let query_result = QueryableRating::belonging_to(&user).load::<QueryableRating>(&self.connector).unwrap();
+
+        let mut ratings_by_item = HashMap::new();
+        for rating in &query_result {
+            ratings_by_item.insert(rating.book_id.clone(), rating.rating);
+        }
+
+        ratings_by_item
+    }
+    fn get_users_with_ratings_chunk(&self, offset: i64, limit: i64) -> HashMap<i32, HashMap<String, f64>> {
+        /*let mut users_with_ratings = HashMap::new();
+
+        for uid in users_id {
+            let user:QueryableUser = users::table.find(uid).get_result(&self.connector).unwrap();
+            let query_result = QueryableRating::belonging_to(&user).load::<QueryableRating>(&self.connector).unwrap();
+            let mut ratings_by_item = HashMap::new();
+            for rating in &query_result {
+                ratings_by_item.insert(rating.book_id.clone(), rating.rating);
+            }
+
+            users_with_ratings.insert(*uid, ratings_by_item);
+        }
+        
+        users_with_ratings*/
+        HashMap::new()
+    }
+
+    
 }

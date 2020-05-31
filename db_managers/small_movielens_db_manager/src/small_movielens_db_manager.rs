@@ -117,4 +117,48 @@ impl DBManager<SMovieLensUser, SMovieLensItem> for SmallMovielensDBManager {
         }
         result
     }
+    fn get_users_chunk(&self, offset: i64, limit: i64) -> Vec<i32> {
+        let user_chunk = users::table
+            .select(users::id)
+            .limit(limit)
+            .offset(offset)
+            .load::<i32>(&self.connector)
+            .expect("Failed to fetch chunk of users");
+        
+        user_chunk
+    }
+    fn get_user_ratings(&self, uid: i32) -> HashMap<i32, f64> {
+        let user:QueryableUser = users::table.find(uid).get_result(&self.connector).unwrap();
+        let query_result = QueryableRating::belonging_to(&user).load::<QueryableRating>(&self.connector).unwrap();
+
+        let mut ratings_by_item = HashMap::new();
+        for rating in &query_result {
+            ratings_by_item.insert(rating.movie_id, rating.rating);
+        }
+
+        ratings_by_item
+    }
+    fn get_users_with_ratings_chunk(&self, offset: i64, limit: i64) -> HashMap<i32, HashMap<i32, f64>> {
+        let user_chunk = users::table
+            .limit(limit)
+            .offset(offset)
+            .load::<QueryableUser>(&self.connector)
+            .expect("Failed to fetch chunk of users");
+
+        let query_result = QueryableRating::belonging_to(&user_chunk).load::<QueryableRating>(&self.connector).expect("Failed to fetch chunk of ratings");
+
+        let mut users_with_ratings = HashMap::new();
+        for rating in query_result {
+            if !users_with_ratings.contains_key(&rating.user_id) {
+                users_with_ratings.insert(rating.user_id, HashMap::new());
+            }
+
+            users_with_ratings.get_mut(&rating.user_id).unwrap().insert(rating.movie_id, rating.rating);
+        }
+
+        users_with_ratings
+    }
+    
+    
+
 }
