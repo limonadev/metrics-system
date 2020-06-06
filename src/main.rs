@@ -11,6 +11,9 @@ use simple_movie_db_manager::{movie_db_manager::MovieDBManager, movie_user::Movi
 use book_db_manager::{book_db_manager::BookDBManager, book_user::BookUser, book_item::BookItem};
 use small_movielens_db_manager::{small_movielens_db_manager::SmallMovielensDBManager, movie_user::SMovieLensUser, movie_item::SMovieLensItem};
 
+pub mod simple_movie_interface;
+pub mod small_movielens_interface;
+
 #[derive(Clone,PartialEq)]
 enum KNNMetric {
     Manhattan,
@@ -349,20 +352,47 @@ fn small_movielens_knn(k: i32, target_id: String, metric: KNNMetric) {
 
 }
 
-
-fn kappa(a:&Vec<String>, b:&Vec<String>) {
-    let aux = a;
-    let a = b;
-    println!("{:?} {:?} {:?}", a, b, aux);
-}
-
 fn main() {
-    small_movielens_knn(500, String::from("1"), KNNMetric::Manhattan);
-
-    /*let a = vec![String::from("Ademir"), String::from("Maria")];
-    let b = vec![String::from("Kevin"), String::from("Alexander")];
-
-    println!("{:?} {:?}", a, b);
-    kappa(&a, &b);
-    println!("{:?} {:?}", a, b);*/
+    //small_movielens_knn(500, String::from("1"), KNNMetric::Manhattan);
+    simple_movie_interface::get_similarity_matrix();
+    small_movielens_interface::get_similarity_matrix();
 }
+
+/*
+let mut all_ratings = HashMap::new();
+let mut ratings_user_1 = HashMap::new();
+ratings_user_1.insert(2, 3.0);
+ratings_user_1.insert(3, 5.0);
+ratings_user_1.insert(4, 4.0);
+ratings_user_1.insert(5, 1.0);
+all_ratings.insert(1, ratings_user_1);
+
+let mut ratings_user_2 = HashMap::new();
+ratings_user_2.insert(2, 3.0);
+ratings_user_2.insert(3, 4.0);
+ratings_user_2.insert(4, 4.0);
+ratings_user_2.insert(5, 1.0);
+all_ratings.insert(2, ratings_user_2);
+
+let mut ratings_user_3 = HashMap::new();
+ratings_user_3.insert(1, 4.0);
+ratings_user_3.insert(2, 3.0);
+ratings_user_3.insert(4, 3.0);
+ratings_user_3.insert(5, 1.0);
+all_ratings.insert(3, ratings_user_3);
+
+let mut ratings_user_4 = HashMap::new();
+ratings_user_4.insert(1, 4.0);
+ratings_user_4.insert(2, 4.0);
+ratings_user_4.insert(3, 4.0);
+ratings_user_4.insert(4, 3.0);
+ratings_user_4.insert(5, 1.0);
+all_ratings.insert(4, ratings_user_4);
+
+let mut ratings_user_5 = HashMap::new();
+ratings_user_5.insert(1, 5.0);
+ratings_user_5.insert(2, 4.0);
+ratings_user_5.insert(3, 5.0);
+ratings_user_5.insert(5, 3.0);
+all_ratings.insert(5, ratings_user_5);
+*/
