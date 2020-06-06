@@ -1,13 +1,22 @@
 use::std::fmt::Debug;
 
 use std::collections::{HashMap, HashSet};
-use std::collections::BinaryHeap;
-use std::hash::Hash;
-use std::marker::PhantomData;
-use std::cmp::{Reverse, min};
 
 use db_manager::{DBManager, User, Item};
 use simple_movie_db_manager::{movie_db_manager::MovieDBManager, movie_user::MovieUser, movie_item::MovieItem};
+
+fn get_items_by_id_or_name(item_name:Option<String>, item_id:Option<String>) -> Vec<MovieItem> {
+    let manager = MovieDBManager::connect_to("postgres://ademir:@localhost/small_movielens");
+
+    let mut item_targets = Vec::new();
+    if let Some(item_name) = item_name {
+        item_targets = manager.get_item_by_name(&item_name);
+    }
+    if let Some(item_id) = item_id {
+        item_targets = manager.get_item_by_id(item_id.parse().expect("Failed to parse item id"));
+    }
+    item_targets
+}
 
 pub fn get_similarity_matrix() -> (Vec<i32>, Vec<Vec<f64>>){
     let manager = MovieDBManager::connect_to("postgres://ademir:@localhost/small_movielens");
@@ -74,4 +83,31 @@ pub fn get_similarity_matrix() -> (Vec<i32>, Vec<Vec<f64>>){
     //println!("{:#?}", similarity_matrix);
 
     (movies_order, similarity_matrix)
+}
+
+pub fn get_similarity_between(
+item_order:&Vec<i32>, similarity_matrix:&Vec<Vec<f64>>,
+f_item_name:Option<String>, f_item_id:Option<String>,
+s_item_name:Option<String>, s_item_id:Option<String>
+) -> Option<f64> {
+    if (f_item_name == None && f_item_id == None) || (s_item_name == None && s_item_id == None){
+        println!("You need to specify an item name or an item id for both items");
+        return None;
+    }
+
+    let first_items = get_items_by_id_or_name(f_item_name, f_item_id);
+    let second_items = get_items_by_id_or_name(s_item_name, s_item_id);
+
+    if first_items.is_empty() || second_items.is_empty() {
+        println!("Failed to find the items. FirstResultSize:{}, SecondResultSize:{}", first_items.len(), second_items.len());
+        return None;
+    }
+
+    let first_item = &first_items[0];
+    let second_item = &second_items[0];
+
+    let first_index = item_order.iter().position(|item| *item == first_item.id).expect("First item not found in similarity matrix");
+    let second_index = item_order.iter().position(|item| *item == second_item.id).expect("Second item not found in similarity matrix");
+
+    Some(similarity_matrix[first_index][second_index].max(similarity_matrix[second_index][first_index]))
 }

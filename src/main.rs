@@ -354,8 +354,16 @@ fn small_movielens_knn(k: i32, target_id: String, metric: KNNMetric) {
 
 fn main() {
     //small_movielens_knn(500, String::from("1"), KNNMetric::Manhattan);
-    simple_movie_interface::get_similarity_matrix();
-    small_movielens_interface::get_similarity_matrix();
+    let (simple_movie_order, simple_movie_matrix) = simple_movie_interface::get_similarity_matrix();
+    let (small_movielens_order, small_movielens_matrix) = small_movielens_interface::get_similarity_matrix();
+    
+    let similarity = simple_movie_interface::get_similarity_between(
+        &simple_movie_order, &simple_movie_matrix,
+        Some(String::from("Alien")), None,
+        Some(String::from("Avatar")), None
+    ).expect("Failed to get the similarity");
+
+    println!("{}", similarity);
 }
 
 /*
