@@ -356,7 +356,7 @@ fn main() {
     //small_movielens_knn(500, String::from("1"), KNNMetric::Manhattan);
     let (simple_movie_order, simple_movie_matrix) = simple_movie_interface::get_similarity_matrix();
     let (small_movielens_order, small_movielens_matrix) = small_movielens_interface::get_similarity_matrix();
-    
+
     let similarity = simple_movie_interface::get_similarity_between(
         &simple_movie_order, &simple_movie_matrix,
         Some(String::from("Alien")), None,
@@ -364,6 +364,65 @@ fn main() {
     ).expect("Failed to get the similarity");
 
     println!("{}", similarity);
+
+    let similarity = simple_movie_interface::get_similarity_between(
+        &simple_movie_order, &simple_movie_matrix,
+        Some(String::from("Braveheart")), None,
+        Some(String::from("The Happening")), None
+    ).expect("Failed to get the similarity");
+
+    println!("{}", similarity);
+
+    let similarity = simple_movie_interface::get_similarity_between(
+        &simple_movie_order, &simple_movie_matrix,
+        Some(String::from("Pulp Fiction")), None,
+        Some(String::from("Toy Story")), None
+    ).expect("Failed to get the similarity");
+
+    println!("{}", similarity);
+
+    let similarity = simple_movie_interface::get_similarity_between(
+        &simple_movie_order, &simple_movie_matrix,
+        Some(String::from("Star Wars")), None,
+        Some(String::from("Jaws")), None
+    ).expect("Failed to get the similarity");
+
+    println!("{}", similarity);
+
+    println!("\n");
+
+    let similarity = small_movielens_interface::get_similarity_between(
+        &small_movielens_order, &small_movielens_matrix,
+        Some(String::from("Iron Will (1994)")), None,
+        Some(String::from("Spider-Man (2002)")), None
+    ).expect("Failed to get the similarity");
+
+    println!("{}", similarity);
+
+    let similarity = small_movielens_interface::get_similarity_between(
+        &small_movielens_order, &small_movielens_matrix,
+        Some(String::from("Micmacs (Micmacs à tire-larigot) (2009)")), None,
+        Some(String::from("Room, The (2003)")), None
+    ).expect("Failed to get the similarity");
+
+    println!("{}", similarity);
+
+    let similarity = small_movielens_interface::get_similarity_between(
+        &small_movielens_order, &small_movielens_matrix,
+        Some(String::from("Sabrina (1995)")), None,
+        Some(String::from("Casino (1995)")), None
+    ).expect("Failed to get the similarity");
+
+    println!("{}", similarity);
+
+    let similarity = small_movielens_interface::get_similarity_between(
+        &small_movielens_order, &small_movielens_matrix,
+        Some(String::from("Dangerous Minds (1995)")), None,
+        Some(String::from("Friday (1995)")), None
+    ).expect("Failed to get the similarity");
+
+    println!("{}", similarity);
+
 }
 
 /*
